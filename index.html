@@ -186,8 +186,7 @@
                         <img id="sidebar-logo-img" src="" class="w-full h-full object-cover hidden">
                     </div>
                     <div>
-                        <h1 id="app-name-sidebar" class="font-bold text-gray-900 leading-tight">School <sub
-                                class="text-[10px] text-brand-600 font-bold ml-0.5">v2.9</sub></h1>
+                        <h1 id="app-name-sidebar" class="font-bold text-gray-900 leading-tight">School Portal</h1>
                         <p class="text-xs text-gray-500 font-medium">School Portal</p>
                     </div>
                 </div>
@@ -243,9 +242,13 @@
                     </div>
                 </div>
                 <button onclick="App.logout()"
-                    class="w-full flex items-center justify-center gap-2 text-red-500 text-sm font-medium py-2 hover:bg-red-50 rounded-lg transition-colors">
+                    class="w-full flex items-center justify-center gap-2 text-red-500 text-sm font-medium py-2 hover:bg-red-50 rounded-lg transition-colors mb-4">
                     <i class="ph ph-sign-out"></i> Sign Out
                 </button>
+                <div class="text-center">
+                    <p class="text-[10px] text-gray-400 font-medium">School Portal v2.9.5</p>
+                    <p class="text-[9px] text-gray-300 mt-0.5">Developed by Rion</p>
+                </div>
             </div>
         </aside>
 
@@ -261,8 +264,7 @@
                         <i id="mobile-logo-icon" class="ph-fill ph-student text-brand-600 text-2xl"></i>
                         <img id="mobile-logo-img" src="" class="w-full h-full object-cover hidden">
                     </div>
-                    <span id="app-name-mobile">School Portal</span> <sub
-                        class="text-[10px] text-brand-600 font-bold self-end mb-1">v2.9</sub>
+                    <span id="app-name-mobile">School Portal</span>
                 </h1>
                 <button onclick="App.logout()" class="text-gray-400 hover:text-red-500 transition-colors">
                     <i class="ph ph-sign-out text-xl"></i>
@@ -802,7 +804,7 @@
                     <div class="max-h-[70vh] overflow-y-auto custom-scroll">
                         ${guides}
                         <div class="mt-8 pt-6 border-t border-gray-100 text-center">
-                            <p class="text-xs text-gray-400">School Portal v2.9 &bull; <a href="#" class="text-brand-600 hover:underline">Contact Support</a></p>
+                            <p class="text-xs text-gray-400">School Portal &bull; <a href="#" class="text-brand-600 hover:underline">Contact Support</a></p>
                         </div>
                     </div>
                 `;
@@ -894,7 +896,7 @@
                 const sidebarName = document.getElementById('app-name-sidebar');
                 const mobileName = document.getElementById('app-name-mobile');
 
-                const appNameHtml = `${this.settings.appName} <sub class="text-[10px] text-brand-600 font-bold ml-0.5">v2.9.2</sub>`;
+                const appNameHtml = `${this.settings.appName}`;
 
                 if (sidebarName) sidebarName.innerHTML = appNameHtml;
                 if (mobileName) mobileName.innerText = this.settings.appName;
@@ -2560,6 +2562,21 @@
                         </div>
                         <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">CSV Headers (Auto-Total included)</label><input type="text" name="headers" placeholder="Name, Date, Remarks" class="input-field" required><p class="text-[10px] text-gray-400 mt-1">'Total' column is automatically appended by system.</p></div>
                         <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Color Theme</label><select name="color" class="input-field"><option value="blue">Blue</option><option value="green">Green</option><option value="orange">Orange</option><option value="purple">Purple</option><option value="red">Red</option></select></div>
+                        
+                        <!-- Target Audience -->
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Target Audience (Goals)</label>
+                            <div class="grid grid-cols-2 gap-2 text-sm bg-gray-50 p-3 rounded-xl border border-gray-200">
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" name="targetAudience" value="Faculty" class="rounded text-brand-600 focus:ring-brand-500"> <span>All Faculty</span></label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" name="targetAudience" value="Class Adviser" class="rounded text-brand-600 focus:ring-brand-500"> <span>Class Advisers</span></label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" name="targetAudience" value="Floating Teacher" class="rounded text-brand-600 focus:ring-brand-500"> <span>Floating Teachers</span></label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" name="targetAudience" value="Department Head" class="rounded text-brand-600 focus:ring-brand-500"> <span>Department Heads</span></label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" name="targetAudience" value="Staff" class="rounded text-brand-600 focus:ring-brand-500"> <span>Staff / Non-Teaching</span></label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" name="targetAudience" value="Admin" class="rounded text-brand-600 focus:ring-brand-500"> <span>Admin / Principal</span></label>
+                            </div>
+                            <p class="text-[10px] text-gray-400 mt-1">Users with these roles will see this report as a 'Goal' to complete.</p>
+                        </div>
+
                         <div><label class="block text-xs font-bold text-gray-500 uppercase mb-2">Visual Icon</label><div class="grid grid-cols-7 gap-2 h-32 overflow-y-auto custom-scroll p-1 border rounded-lg">${icons.map((ic, i) => `<label class="cursor-pointer"><input type="radio" name="icon" value="${ic}" class="peer sr-only" ${i === 0 ? 'checked' : ''}><div class="w-10 h-10 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center peer-checked:bg-brand-600 peer-checked:text-white peer-checked:border-brand-600 text-gray-500 hover:bg-gray-100 transition-all"><i class="ph-fill ${ic} text-xl"></i></div></label>`).join('')}</div></div>
                         <button type="submit" class="w-full bg-brand-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-brand-700">Create Definition</button>
                     </form>
@@ -2649,7 +2666,7 @@
                         </section>
 
                         <div class="mt-8 pt-6 border-t border-gray-100 text-center">
-                            <p class="text-xs text-gray-400">School Portal v2.9 &bull; <a href="#" class="text-brand-600 hover:underline">Contact Support</a></p>
+                            <p class="text-xs text-gray-400">School Portal &bull; <a href="#" class="text-brand-600 hover:underline">Contact Support</a></p>
                         </div>
                     </div>
                 `;
@@ -3137,6 +3154,23 @@
                                     <div class="space-y-4">
                                         <div class="space-y-1"><label class="text-xs font-bold text-gray-500">Department</label><input type="text" name="department" value="${u.department}" class="input-field text-sm py-2" required></div>
                                         <div class="space-y-1"><label class="text-xs font-bold text-gray-500">Subject Handled</label><input type="text" name="subject" value="${u.subject}" class="input-field text-sm py-2" required></div>
+                                        
+                                        <!-- Faculty Designation -->
+                                        ${u.role === 'Faculty' ? `
+                                            <div class="space-y-1">
+                                                <label class="text-xs font-bold text-gray-500">Designation</label>
+                                                <select name="designation" class="input-field text-sm py-2" onchange="document.getElementById('adv-sec-group').style.display = this.value === 'Class Adviser' ? 'block' : 'none'">
+                                                    <option value="" disabled ${!u.designation ? 'selected' : ''}>-- Select Designation --</option>
+                                                    <option value="Floating Teacher" ${u.designation === 'Floating Teacher' ? 'selected' : ''}>Floating Teacher</option>
+                                                    <option value="Class Adviser" ${u.designation === 'Class Adviser' ? 'selected' : ''}>Class Adviser</option>
+                                                </select>
+                                            </div>
+                                            <div id="adv-sec-group" class="space-y-1" style="display: ${u.designation === 'Class Adviser' ? 'block' : 'none'}">
+                                                <label class="text-xs font-bold text-gray-500">Advisory Section</label>
+                                                <input type="text" name="advisorySection" value="${u.advisorySection || ''}" placeholder="e.g. Grade 10 - Ruby" class="input-field text-sm py-2">
+                                            </div>
+                                        ` : ''}
+
                                         <div class="space-y-1"><label class="text-xs font-bold text-gray-500">Grade Level</label><input type="text" name="gradeLevel" value="${u.gradeLevel}" class="input-field text-sm py-2" required></div>
                                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                                              <div class="space-y-1"><label class="text-xs font-bold text-gray-500">PhilHealth ID</label><input type="text" name="philHealth" value="${u.philHealth || ''}" class="input-field text-sm py-2" required></div>
@@ -3252,7 +3286,7 @@
                 }
             },
             async saveProfile() {
-                const inputs = document.querySelectorAll('#profile-form input, #profile-form textarea');
+                const inputs = document.querySelectorAll('#profile-form input, #profile-form textarea, #profile-form select');
                 let updated = { ...this.user };
 
                 let allValid = true;
