@@ -446,11 +446,23 @@
 
             // --- PERMISSION HELPERS ---
             isDev() { return this.user && (this.user.role === 'Developer' || this.user.position === 'System Developer' || this.user.id === 'USR-MOCK-DEV'); },
-            isPrincipal() { return this.user && (this.user.role === 'Principal' || this.user.role === 'Admin' || this.user.position.includes('Principal')); },
-            isDrrm() { return this.user && (this.user.department === 'DRRM' || this.user.role === 'DRRM Officer' || this.user.position.includes('DRRM')); },
+            isPrincipal() { return this.user && (this.user.role === 'Principal' || this.user.role === 'Admin' || (this.user.position || '').includes('Principal')); },
+            isDrrm() { return this.user && (this.user.department === 'DRRM' || this.user.role === 'DRRM Officer' || (this.user.position || '').includes('DRRM')); },
+
+            isDeptHead() {
+                if (!this.user) return false;
+                // Check if user is a leader of any group OR has explicit role/position
+                const leadsGroup = this.groups && this.groups.some(g => g.leaderId === this.user.id);
+                const explicitRole = (this.user.role === 'Department Head' || this.user.role === 'Leader');
+                return leadsGroup || explicitRole;
+            },
 
             canManageUsers() {
                 return this.isDev() || this.isPrincipal();
+            },
+
+            canDownloadReports() {
+                return this.canManageUsers() || this.isDeptHead() || (this.user.position || '').includes('Assistant Principal');
             },
 
             // --- DATE HELPERS ---
@@ -2506,7 +2518,8 @@
                         <div class="flex justify-between items-center mb-6">
                             <div><h3 class="text-lg font-bold text-gray-900">${typeDef ? typeDef.label : typeId}</h3><p class="text-xs text-gray-500">Consolidated Data</p></div>
                             <div class="flex items-center gap-2">
-                                ${this.canManageUsers() ? `<button onclick="App.deleteReportType('${typeId}')" class="px-3 py-1.5 bg-red-50 text-red-600 text-xs font-bold rounded-lg border border-red-100 hover:bg-red-100 transition-colors">Delete Report Definition</button>` : ''}
+                                ${this.canDownloadReports() ? `<button onclick="App.downloadReportData('${typeId}')" class="px-3 py-1.5 bg-green-50 text-green-600 text-xs font-bold rounded-lg border border-green-100 hover:bg-green-100 transition-colors"><i class="ph-bold ph-download-simple"></i> Download Data</button>` : ''}
+                                ${this.canManageUsers() ? `<button onclick="App.deleteReportType('${typeId}')" class="px-3 py-1.5 bg-red-50 text-red-600 text-xs font-bold rounded-lg border border-red-100 hover:bg-red-100 transition-colors">Delete Definition</button>` : ''}
                                 <button onclick="App.closeModal()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200"><i class="ph ph-x"></i></button>
                             </div>
                         </div>
@@ -2547,6 +2560,92 @@
                         this.toast("Metric value updated successfully.");
                     }
                 });
+            },
+
+            downloadReportData(typeId) {
+                const typeDef = this.reportTypes.find(t => t.id === typeId);
+                const items = this.reports.filter(r => r.typeId === typeId);
+
+                if (!items.length) { this.toast("No data to download."); return; }
+
+                // Helper to flatten object
+                const flatten = (obj, prefix = '', res = {}) => {
+                    for (const key in obj) {
+                        if (typeof obj[key] === 'object' && obj[key] !== null) {
+                            flatten(obj[key], prefix + key + ' ', res);
+                        } else {
+                            res[prefix + key] = obj[key];
+                        }
+                    }
+                    return res;
+                };
+
+                // 1. Prepare all rows and collect all possible dynamic headers
+                const processedRows = items.map(r => {
+                    let s = r.stats;
+                    if (typeof s === 'string') { try { s = JSON.parse(s); } catch (e) { s = {}; } }
+                    s = s || {};
+
+                    // Add derived stats (e.g. Avg BMI) to the stats object so they get flattened too
+                    if (s.bmi && s.bmi.count > 0) {
+                        s.bmi.average = (s.bmi.total / s.bmi.count).toFixed(2);
+                    }
+
+                    const flatStats = flatten(s);
+
+                    // Get Section
+                    const submitter = this.users.find(u => u.id === r.userId);
+                    const section = submitter ? (submitter.advisorySection || '') : '';
+
+                    return {
+                        base: {
+                            "Date": r.date,
+                            "Submitter": r.user,
+                            "Submitter ID": r.userId,
+                            "Advisory Section": section,
+                            "Metric Value": r.metricValue,
+                            "File URL": r.fileUrl
+                        },
+                        stats: flatStats
+                    };
+                });
+
+                // 2. Collect Unique Headers from Stats
+                const statKeys = new Set();
+                processedRows.forEach(row => {
+                    Object.keys(row.stats).forEach(k => statKeys.add(k));
+                });
+                const sortedStatKeys = Array.from(statKeys).sort();
+
+                // 3. Build CSV
+                const baseHeaders = ["Date", "Submitter", "Submitter ID", "Advisory Section", "Metric Value"];
+                const allHeaders = [...baseHeaders, ...sortedStatKeys, "File URL"];
+
+                const csvContent = [allHeaders.join(",")].concat(
+                    processedRows.map(row => {
+                        const rowData = [];
+
+                        // Base Cols
+                        baseHeaders.forEach(h => rowData.push(`"${row.base[h] || ''}"`));
+
+                        // Stat Cols
+                        sortedStatKeys.forEach(k => rowData.push(`"${row.stats[k] !== undefined ? row.stats[k] : ''}"`));
+
+                        // File URL
+                        rowData.push(`"${row.base["File URL"]}"`);
+
+                        return rowData.join(",");
+                    })
+                ).join("\n");
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.setAttribute("href", url);
+                link.setAttribute("download", `${typeDef ? typeDef.label : typeId}_Data.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
             },
 
             deleteReport(reportId) {
@@ -2990,9 +3089,15 @@
                                 }
                                 this.toast(`Summed values from 'Total' column: ${calculatedValue}`);
                             } else {
-                                // CASE B: Count rows
-                                calculatedValue = jsonData.length - 1;
-                                this.toast(`No 'Total' header found. Counted ${calculatedValue} rows.`);
+                                // CASE B: Count rows (Only non-empty ones)
+                                // Filter out rows that are entirely empty or purely whitespace
+                                const nonEmptyRows = jsonData.filter((row, idx) => {
+                                    if (idx === 0) return false; // Skip header
+                                    if (!row || !Array.isArray(row) || row.length === 0) return false;
+                                    return row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== '');
+                                });
+                                calculatedValue = nonEmptyRows.length;
+                                this.toast(`No 'Total' header found. Counted ${calculatedValue} entries.`);
                             }
 
                             metricInput.value = calculatedValue;
