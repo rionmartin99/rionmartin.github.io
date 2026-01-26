@@ -2316,6 +2316,120 @@
                 const items = this.reports.filter(r => r.typeId === typeId);
                 const total = items.reduce((sum, r) => sum + (parseInt(r.metricValue) || 0), 0);
 
+                // --- ANALYTICS AGGREGATION ---
+                // If this is Student Gen Info, we aggregate the JSON stats
+                let analyticsHtml = '';
+                const isStudentInfo = typeId === 'student_general_information' || (typeDef && typeDef.label === 'Student General Information');
+
+                if (isStudentInfo) {
+                    let agg = {
+                        gender: { male: 0, female: 0 },
+                        age: {},
+                        fourPs: { yes: 0, no: 0 },
+                        bmi: { total: 0, count: 0, underweight: 0, normal: 0, overweight: 0, obese: 0 },
+                        ips: { yes: 0, no: 0 }
+                    };
+
+                    items.forEach(r => {
+                        let s = r.stats;
+                        if (typeof s === 'string') {
+                            try { s = JSON.parse(s); } catch (e) { s = null; }
+                        }
+
+                        if (s) {
+                            if (s.gender) {
+                                agg.gender.male += (s.gender.male || 0);
+                                agg.gender.female += (s.gender.female || 0);
+                            }
+                            if (s.fourPs) {
+                                agg.fourPs.yes += (s.fourPs.yes || 0);
+                                agg.fourPs.no += (s.fourPs.no || 0);
+                            }
+                            if (s.ips) {
+                                agg.ips.yes += (s.ips.yes || 0);
+                                agg.ips.no += (s.ips.no || 0);
+                            }
+                            if (s.age) {
+                                Object.keys(s.age).forEach(k => {
+                                    agg.age[k] = (agg.age[k] || 0) + s.age[k];
+                                });
+                            }
+                            if (s.bmi) {
+                                agg.bmi.total += (s.bmi.total || 0);
+                                agg.bmi.count += (s.bmi.count || 0);
+                                agg.bmi.underweight += (s.bmi.underweight || 0);
+                                agg.bmi.normal += (s.bmi.normal || 0);
+                                agg.bmi.overweight += (s.bmi.overweight || 0);
+                                agg.bmi.obese += (s.bmi.obese || 0);
+                            }
+                        }
+                    });
+
+                    // Prepare Chart HTML
+                    const avgBmi = agg.bmi.count > 0 ? (agg.bmi.total / agg.bmi.count).toFixed(1) : 'N/A';
+
+                    analyticsHtml = `
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <!-- Gender -->
+                        <div class="bg-blue-50 p-4 rounded-xl border border-blue-100 relative overflow-hidden">
+                            <i class="ph-fill ph-gender-intersex absolute right-[-5px] bottom-[-5px] text-5xl text-blue-200/50"></i>
+                            <h4 class="text-[10px] font-bold text-blue-800 uppercase tracking-wider mb-2">Gender</h4>
+                            <div class="flex flex-col gap-1">
+                                <div class="flex justify-between text-sm"><span class="text-blue-600 font-medium">Male</span> <span class="font-bold text-blue-900">${agg.gender.male}</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-blue-600 font-medium">Female</span> <span class="font-bold text-blue-900">${agg.gender.female}</span></div>
+                            </div>
+                        </div>
+
+                        <!-- 4Ps -->
+                        <div class="bg-yellow-50 p-4 rounded-xl border border-yellow-100 relative overflow-hidden">
+                            <i class="ph-fill ph-hand-coins absolute right-[-5px] bottom-[-5px] text-5xl text-yellow-200/50"></i>
+                            <h4 class="text-[10px] font-bold text-yellow-800 uppercase tracking-wider mb-2">4Ps Status</h4>
+                            <div class="flex flex-col gap-1">
+                                <div class="flex justify-between text-sm"><span class="text-yellow-600 font-medium">Yes</span> <span class="font-bold text-yellow-900">${agg.fourPs.yes}</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-yellow-600 font-medium">No</span> <span class="font-bold text-yellow-900">${agg.fourPs.no}</span></div>
+                            </div>
+                        </div>
+                        
+                        <!-- IPs -->
+                        <div class="bg-orange-50 p-4 rounded-xl border border-orange-100 relative overflow-hidden">
+                            <i class="ph-fill ph-users-three absolute right-[-5px] bottom-[-5px] text-5xl text-orange-200/50"></i>
+                            <h4 class="text-[10px] font-bold text-orange-800 uppercase tracking-wider mb-2">IP Status</h4>
+                            <div class="flex flex-col gap-1">
+                                <div class="flex justify-between text-sm"><span class="text-orange-600 font-medium">Yes</span> <span class="font-bold text-orange-900">${agg.ips.yes}</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-orange-600 font-medium">No</span> <span class="font-bold text-orange-900">${agg.ips.no}</span></div>
+                            </div>
+                        </div>
+
+                         <!-- BMI -->
+                        <div class="bg-green-50 p-4 rounded-xl border border-green-100 relative overflow-hidden col-span-2">
+                            <i class="ph-fill ph-apple absolute right-[-5px] bottom-[-5px] text-5xl text-green-200/50"></i>
+                            <h4 class="text-[10px] font-bold text-green-800 uppercase tracking-wider mb-2">Health (BMI)</h4>
+                            <div class="flex items-center gap-6">
+                                <div><span class="block text-2xl font-bold text-green-900">${avgBmi}</span><span class="text-[10px] text-green-600">Avg Score</span></div>
+                                <div class="flex-1 space-y-1 border-l border-green-200 pl-4">
+                                     <div class="flex justify-between text-xs"><span class="text-green-700">Underweight</span> <span class="font-bold text-green-900">${agg.bmi.underweight}</span></div>
+                                     <div class="flex justify-between text-xs"><span class="text-green-700">Normal</span> <span class="font-bold text-green-900">${agg.bmi.normal}</span></div>
+                                     <div class="flex justify-between text-xs"><span class="text-green-700">Overwt/Obese</span> <span class="font-bold text-green-900">${agg.bmi.overweight + agg.bmi.obese}</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Age Brackets -->
+                         <div class="bg-purple-50 p-4 rounded-xl border border-purple-100 relative overflow-hidden col-span-2 md:col-span-4">
+                            <i class="ph-fill ph-cake absolute right-[-5px] bottom-[-5px] text-5xl text-purple-200/50"></i>
+                            <h4 class="text-[10px] font-bold text-purple-800 uppercase tracking-wider mb-2">Age Distribution</h4>
+                            <div class="flex divide-x divide-purple-200">
+                                <div class="flex-1 text-center"><div class="text-xs text-purple-600">11-13</div><div class="font-bold text-purple-900">${agg.age['11-13'] || 0}</div></div>
+                                <div class="flex-1 text-center"><div class="text-xs text-purple-600">14-16</div><div class="font-bold text-purple-900">${agg.age['14-16'] || 0}</div></div>
+                                <div class="flex-1 text-center"><div class="text-xs text-purple-600">17+</div><div class="font-bold text-purple-900">${agg.age['17+'] || 0}</div></div>
+                            </div>
+                        </div>
+
+                    </div>
+                    `;
+                }
+
+
                 const rows = items.map(r => `
                     <tr class="border-b border-gray-50 last:border-0 hover:bg-gray-50">
                         <td class="p-3 text-xs text-gray-600">${r.date}</td>
@@ -2339,6 +2453,10 @@
                             <span class="text-sm font-bold text-brand-800">Total ${typeDef ? typeDef.metricLabel : 'Value'}</span>
                             <span class="text-2xl font-bold text-brand-600">${total} <span class="text-lg text-brand-400 font-medium">${typeDef ? (typeDef.unit || '') : ''}</span></span>
                         </div>
+                        
+                        <!-- ANALYTICS CARDS INJECTION -->
+                        ${analyticsHtml}
+
                         <div class="overflow-x-auto max-h-96 custom-scroll">
                             <table class="w-full text-left border-collapse">
                                 <thead class="bg-gray-50 sticky top-0"><tr class="text-[10px] uppercase text-gray-400 font-bold tracking-wider"><th class="p-3">Date</th><th class="p-3">Submitter</th><th class="p-3">Metric (${typeDef ? (typeDef.unit || '') : ''})</th><th class="p-3">Proof</th>${this.canManageUsers() ? '<th class="p-3">Action</th>' : ''}</tr></thead>
@@ -2706,19 +2824,84 @@
                             const headers = jsonData[0].map(h => String(h).toLowerCase().trim());
                             const totalColIndex = headers.indexOf('total');
 
+                            // --- NEW: ANALYTICS PARSING ---
+                            // We look for specific columns: Gender, Age, 4Ps, Weight, Height
+                            let stats = {
+                                gender: { male: 0, female: 0 },
+                                age: {}, // { "11-13": 0, "14-16": 0, ... }
+                                fourPs: { yes: 0, no: 0 },
+                                bmi: { total: 0, count: 0, underweight: 0, normal: 0, overweight: 0, obese: 0 }
+                            };
+
+                            // Column Indices
+                            const idxGender = headers.indexOf('gender');
+                            const idxAge = headers.indexOf('age');
+                            const idx4Ps = headers.findIndex(h => h.includes('4ps'));
+                            const idxWeight = headers.findIndex(h => h.includes('weight'));
+                            const idxHeight = headers.findIndex(h => h.includes('height'));
+
+                            for (let i = 1; i < jsonData.length; i++) {
+                                const row = jsonData[i];
+
+                                // Gender
+                                if (idxGender !== -1) {
+                                    const g = String(row[idxGender] || '').toLowerCase();
+                                    if (g === 'male' || g === 'm') stats.gender.male++;
+                                    else if (g === 'female' || g === 'f') stats.gender.female++;
+                                }
+
+                                // Age
+                                if (idxAge !== -1) {
+                                    const age = parseInt(row[idxAge]);
+                                    if (!isNaN(age)) {
+                                        // Age Brackets
+                                        let bracket = "Other";
+                                        if (age >= 11 && age <= 13) bracket = "11-13";
+                                        else if (age >= 14 && age <= 16) bracket = "14-16";
+                                        else if (age >= 17) bracket = "17+";
+                                        else bracket = "<11";
+
+                                        stats.age[bracket] = (stats.age[bracket] || 0) + 1;
+                                    }
+                                }
+
+                                // 4Ps
+                                if (idx4Ps !== -1) {
+                                    const s = String(row[idx4Ps] || '').toLowerCase();
+                                    if (s === 'yes' || s === 'y' || s === 'true') stats.fourPs.yes++;
+                                    else stats.fourPs.no++;
+                                }
+
+                                // BMI
+                                if (idxWeight !== -1 && idxHeight !== -1) {
+                                    const w = parseFloat(row[idxWeight]); // kg
+                                    const h = parseFloat(row[idxHeight]); // meters
+                                    if (!isNaN(w) && !isNaN(h) && h > 0) {
+                                        const bmi = w / (h * h);
+                                        stats.bmi.total += bmi;
+                                        stats.bmi.count++;
+
+                                        if (bmi < 18.5) stats.bmi.underweight++;
+                                        else if (bmi < 24.9) stats.bmi.normal++;
+                                        else if (bmi < 29.9) stats.bmi.overweight++;
+                                        else stats.bmi.obese++;
+                                    }
+                                }
+                            }
+
+                            // Store stats in hidden field or state to refer later
+                            this.tempStats = stats;
+
+                            // Original Total Calculation
                             if (totalColIndex !== -1) {
                                 // CASE A: Found "Total" column -> Sum values
                                 for (let i = 1; i < jsonData.length; i++) {
-                                    const row = jsonData[i];
-                                    const val = parseFloat(row[totalColIndex]);
-                                    if (!isNaN(val)) {
-                                        calculatedValue += val;
-                                    }
+                                    const val = parseFloat(jsonData[i][totalColIndex]);
+                                    if (!isNaN(val)) calculatedValue += val;
                                 }
                                 this.toast(`Summed values from 'Total' column: ${calculatedValue}`);
                             } else {
-                                // CASE B: No "Total" column -> Count rows
-                                // Filter out empty rows just in case
+                                // CASE B: Count rows
                                 calculatedValue = jsonData.length - 1;
                                 this.toast(`No 'Total' header found. Counted ${calculatedValue} rows.`);
                             }
@@ -2731,8 +2914,11 @@
                             metricInput.removeAttribute('readonly'); // Fallback to manual
                             metricInput.classList.remove('bg-gray-100', 'cursor-not-allowed');
                             metricInput.placeholder = "Enter manually";
+                            this.tempStats = null;
                         }
                     };
+
+
                     reader.readAsArrayBuffer(file);
                 }
             },
@@ -2748,10 +2934,14 @@
                     // Generate Dynamic XLSX with Sample Data
                     try {
                         const sampleRow = headers.map(h => {
-                            if (h.includes('WEIGHT')) return 45;
-                            if (h.includes('HEIGHT')) return 1.5;
-                            if (h.includes('AGE')) return 16;
-                            if (h.includes('DATE') || h.includes('BIRTHDAY')) return '2008-01-01';
+                            const col = h.toUpperCase();
+                            if (col.includes('WEIGHT')) return 45;
+                            if (col.includes('HEIGHT')) return 1.5;
+                            if (col.includes('AGE')) return 16;
+                            if (col.includes('DATE') || col.includes('BIRTHDAY')) return '2008-01-01';
+                            if (col.includes('GENDER')) return 'Male';
+                            if (col.includes('4PS')) return 'Yes';
+                            if (col.includes('IP') || col.includes('INDIGENOUS')) return 'Yes';
                             return `Sample ${h}`;
                         });
 
@@ -2821,7 +3011,8 @@
                         unit: typeDef.unit || '', // Store unit snapshot
                         date: new Date().toLocaleDateString(),
                         fileName: file.name,
-                        fileData: re.target.result // Base64
+                        fileData: re.target.result, // Base64
+                        stats: this.tempStats || {} // Attach calculated stats
                     };
 
                     await this.api('submitReport', newReport);
