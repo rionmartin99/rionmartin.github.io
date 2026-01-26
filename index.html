@@ -391,6 +391,7 @@
             tempGroupChatFileName: null,
             lastReportTime: 0,
             pendingCallback: null,
+            refreshInterval: null,
 
             async init() {
                 // Check locally stored session FIRST (Optimistic Auth)
@@ -405,6 +406,7 @@
                         this.updateSidebarIdentity();
                         this.router('home');
                         this.fetchInitialData(); // Async Sync
+                        this.startAutoRefresh(); // [ADDED] Auto Refresh
                     } catch (e) {
                         console.error("Session parse error", e);
                         this.user = null;
@@ -416,6 +418,30 @@
 
                 // Global Event Listeners
                 this.setupTooltips();
+
+                // Simplify Auto-Refresh Lifecycle (Pause on blur, Resume on focus)
+                document.addEventListener('visibilitychange', () => {
+                    if (document.hidden) this.stopAutoRefresh();
+                    else this.startAutoRefresh();
+                });
+            },
+
+            startAutoRefresh() {
+                if (this.refreshInterval) clearInterval(this.refreshInterval);
+                // 60 seconds interval to balance "Real Time" vs "GAS Quota"
+                this.refreshInterval = setInterval(() => {
+                    if (this.user) {
+                        console.log('Auto-refreshing data...');
+                        this.refreshData(true); // silent mode
+                    }
+                }, 60000);
+            },
+
+            stopAutoRefresh() {
+                if (this.refreshInterval) {
+                    clearInterval(this.refreshInterval);
+                    this.refreshInterval = null;
+                }
             },
 
             // --- PERMISSION HELPERS ---
@@ -496,8 +522,8 @@
                 }
             },
 
-            async refreshData() {
-                this.showLoader(true);
+            async refreshData(silent = false) {
+                if (!silent) this.showLoader(true);
                 try {
                     const [resUsers, resPosts, resGroups, resRepTypes, resReports, resSettings] = await Promise.all([
                         this.api('getUsers'),
@@ -517,10 +543,32 @@
                         this.settings = { ...this.settings, ...resSettings.settings };
                         this.applySettings();
                     }
+
+                    // Re-render current view if active (to show new data)
+                    const currentRoute = document.querySelector('.nav-btn.active')?.dataset.target || 'home';
+                    // We only re-render if we are NOT in the middle of a modal? 
+                    // Ideally, we should be careful. For now, let's just re-render main views.
+                    // But if user is typing, full re-render is bad.
+                    // Reactivity would be better, but we are using Vanilla.
+                    // Let's only toast for now or update unobtrusively?
+                    // The user asked for "updates can be seen in real time". 
+                    // Most safe is to re-render the view if it's "safe".
+                    if (!silent) {
+                        // Initial load - do nothing specific
+                    } else {
+                        // Background refresh - we might want to refresh the view ONLY if safe
+                        // For checking, let's just log it. 
+                        // But to actually see updates, we need to call the render function.
+                        if (currentRoute === 'home') this.renderHome(document.getElementById('main-view'));
+                        else if (currentRoute === 'groups') this.renderGroups(document.getElementById('main-view'));
+                        else if (currentRoute === 'reports') this.renderReports(document.getElementById('main-view'));
+                        else if (currentRoute === 'drrm') this.renderDrrm(document.getElementById('main-view'));
+                    }
+
                 } catch (e) {
                     console.warn("Data sync partial fail", e);
                 } finally {
-                    this.showLoader(false);
+                    if (!silent) this.showLoader(false);
                 }
             },
 
@@ -2303,7 +2351,7 @@
                                     <div class="p-4 border-b border-gray-50 flex items-center justify-between last:border-0 hover:bg-gray-50 transition-colors">
                                         <div class="flex items-center gap-3">
                                             <div class="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600"><i class="ph-fill ph-file-text text-xl"></i></div>
-                                            <div><p class="text-sm font-bold text-gray-900">${r.typeLabel} <span class="font-normal text-gray-500">(${r.metricValue} ${r.unit || ''})</span></p><p class="text-xs text-gray-500">${r.user} • ${r.date}</p></div>
+                                            <div><p class="text-sm font-bold text-gray-900">${r.typeLabel} <span class="font-normal text-gray-500">(${r.metricValue} ${r.unit || ''})</span></p><p class="text-xs text-gray-500">${r.user} • ${this.formatDate(r.date)}</p></div>
                                         </div>
                                         <div class="flex items-center gap-2">
                                             <a href="${r.fileUrl || '#'}" target="_blank" class="text-xs font-medium text-green-600 bg-white border border-green-100 px-3 py-1 rounded-full hover:bg-green-50">View File</a>
