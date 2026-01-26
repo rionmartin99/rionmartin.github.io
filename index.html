@@ -425,6 +425,17 @@
                 return this.isDev() || this.isPrincipal();
             },
 
+            // --- DATE HELPERS ---
+            formatDate(dateStr) {
+                if (!dateStr) return '';
+                try {
+                    const d = new Date(dateStr);
+                    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+                        ' • ' +
+                        d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                } catch (e) { return dateStr; }
+            },
+
             // --- API HANDLER ---
             async api(action, data = {}) {
                 if (API_URL === 'PASTE_YOUR_GOOGLE_SCRIPT_WEB_APP_URL_HERE') {
@@ -580,7 +591,7 @@
                             <div class="p-4 border-b border-gray-50 flex items-center justify-between last:border-0 hover:bg-gray-50 transition-colors">
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-red-600"><i class="ph-fill ph-warning-octagon text-xl"></i></div>
-                                    <div><p class="text-sm font-bold text-gray-900">${r.typeLabel} <span class="font-normal text-gray-500">(${r.metricValue} ${r.unit || ''})</span></p><p class="text-xs text-gray-500">${r.user} • ${r.date}</p></div>
+                                    <div><p class="text-sm font-bold text-gray-900">${r.typeLabel} <span class="font-normal text-gray-500">(${r.metricValue} ${r.unit || ''})</span></p><p class="text-xs text-gray-500">${r.user} • ${this.formatDate(r.date)}</p></div>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <a href="${r.fileUrl || '#'}" target="_blank" class="text-xs font-medium text-green-600 bg-white border border-green-100 px-3 py-1 rounded-full hover:bg-green-50">View File</a>
@@ -2432,7 +2443,7 @@
 
                 const rows = items.map(r => `
                     <tr class="border-b border-gray-50 last:border-0 hover:bg-gray-50">
-                        <td class="p-3 text-xs text-gray-600">${r.date}</td>
+                        <td class="p-3 text-xs text-gray-600">${this.formatDate(r.date)}</td>
                         <td class="p-3 text-xs font-bold text-gray-900">${r.user}</td>
                         <td class="p-3 text-xs font-mono">${r.metricValue}</td>
                         <td class="p-3 text-xs"><a href="${r.fileUrl}" target="_blank" class="text-blue-600 hover:underline">View Proof</a></td>
@@ -2711,7 +2722,7 @@
                 if (!headersList.includes('Total')) headersList.push('Total');
 
                 const newType = {
-                    id: data.label.toLowerCase().replace(/\s+/g, '_'),
+                    id: 'rt_' + Date.now(),
                     label: data.label,
                     metricLabel: data.metricLabel,
                     unit: data.unit,
@@ -2720,14 +2731,27 @@
                     icon: data.icon || 'ph-chart-bar',
                     category: data.category
                 };
-                await this.api('saveReportType', newType);
-                this.reportTypes.push(newType);
-                this.toast('New Report Type Added');
-                this.closeModal();
 
-                const currentRoute = document.querySelector('.nav-btn.active')?.dataset.target || 'reports';
-                if (currentRoute === 'drrm') this.renderDrrm(document.getElementById('main-view'));
-                else this.renderReports(document.getElementById('main-view'));
+                const btn = e.target.querySelector('button[type="submit"]');
+                const originalText = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Saving...';
+
+                try {
+                    await this.api('saveReportType', newType);
+                    this.reportTypes.push(newType);
+                    this.toast('New Report Type Added');
+                    this.closeModal();
+
+                    const currentRoute = document.querySelector('.nav-btn.active')?.dataset.target || 'reports';
+                    if (currentRoute === 'drrm') this.renderDrrm(document.getElementById('main-view'));
+                    else this.renderReports(document.getElementById('main-view'));
+                } catch (err) {
+                    this.toast('Failed to create definition: ' + err.message, 'error');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
             },
 
             openSubmitModal() {
@@ -3009,18 +3033,32 @@
                         typeLabel: typeDef ? typeDef.label : typeId,
                         metricValue: formData.get('metricValue'),
                         unit: typeDef.unit || '', // Store unit snapshot
-                        date: new Date().toLocaleDateString(),
+                        date: new Date().toISOString(),
                         fileName: file.name,
                         fileData: re.target.result, // Base64
                         stats: this.tempStats || {} // Attach calculated stats
                     };
 
-                    await this.api('submitReport', newReport);
-                    this.reports.push(newReport); // Optimistic (without fileUrl)
-                    this.lastReportTime = Date.now();
-                    this.toast('Report Submitted!');
-                    this.closeModal();
-                    this.renderReports(document.getElementById('main-view'));
+                    const btn = e.target.querySelector('button[type="submit"]');
+                    const originalText = btn.innerHTML;
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Submitting...';
+
+                    try {
+                        await this.api('submitReport', newReport);
+                        this.reports.push(newReport); // Optimistic (without fileUrl)
+                        this.lastReportTime = Date.now();
+                        this.toast('Report Submitted!');
+                        this.closeModal();
+                        this.renderReports(document.getElementById('main-view'));
+                    } catch (err) {
+                        this.toast('Submission failed: ' + err.message, 'error');
+                    } finally {
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = originalText;
+                        }
+                    }
                 };
                 reader.readAsDataURL(file);
             },
