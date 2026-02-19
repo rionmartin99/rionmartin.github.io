@@ -1,16 +1,21 @@
 <!-- 
-    School Portal - v2.9.2 (Optimization & Clarity Edition)
+    School Portal - v2.9.4 (High Visibility Edition)
     
     CHANGELOG:
-    - [UX] Date Format: Standardized all timestamps to "Month DD, YYYY, HH:MM AM/PM" format.
-    - [FEAT] Report Type Management: Added ability for Principals/Devs to delete Report Types/Cards from the dashboard.
-    - [PERF] Pagination: Bulletin Board and Group Chat now load in batches of 10 to improve performance.
-    - [POL] Data Retention: Posts and Chat messages older than 1 year are automatically hidden from the frontend view.
-    - [FEAT] Auto-Calculate Reports: Integrated SheetJS to parse Excel/CSV uploads.
-    - [FEAT] Intelligent Metrics: Automatically sums "Total" column or counts rows for metric value.
-    - [FEAT] User Management: Added "User Manager" for Devs/Principals.
-    - [FEAT] Post Moderation: Added "Edit Post" capability for Leaders/Admins.
-    - [SYS] Backend Bridge: Wired all new UI components to async `App.api()` calls.
+    v2.9.4 (Feb 2026) - UI Polish:
+    - [UX] Profile: Increased input border contrast (gray-400) and added background (gray-50) for maximum visibility
+    
+    v2.9.3 (Feb 2026) - Profile Page UI/UX Enhancements:
+    - [UX] Profile: Added visible border outlines for all input containers and input fields
+    - [UX] Profile: Separated password update with dedicated "Update Password" button
+    - [UX] Profile: Optimized spacing between labels and inputs
+    - [FEAT] Profile: Privacy indicators for PhilHealth ID, GSIS No., and Home Address
+    - [FEAT] Profile: Educational Attainment dropdown (HS Graduate to Doctorate)
+    - [FEAT] Profile: Grade Level dropdown (Grade 7-12)
+    - [FEAT] Profile: Section icons for visual clarity
+    - [FUNC] savePassword() function for dedicated password management
+    - [PERM] PSDS position now has Principal-like powers and capabilities
+    - [PERM] DRRM position users have access to DRRM Corner only
     
     INSTRUCTIONS:
     1. Deploy your Google Apps Script backend.
@@ -22,7 +27,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+        with="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>School Portal v2.9.2</title>
 
     <!-- Tailwind CSS -->
@@ -118,7 +123,21 @@
         }
 
         .input-field {
-            @apply w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-100 outline-none transition-all duration-200;
+            /* High visibility borders as requested - Fixed for browser compatibility */
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            background-color: #f9fafb;
+            border: 2px solid #9ca3af;
+            outline: none;
+            transition: all 0.2s;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        .input-field:focus {
+            background-color: #ffffff;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px #dbeafe;
         }
 
         /* Custom Dropdown Styling (Chevron) */
@@ -146,19 +165,40 @@
         }
 
         .like-active {
-            @apply text-red-500 fill-current;
+            color: #ef4444;
+            fill: currentColor;
             animation: likeBounce 0.3s forwards;
         }
 
         /* Slider Styling */
         input[type=range] {
-            @apply accent-green-500;
+            accent-color: #22c55e;
         }
 
         /* Loader Overlay */
         #global-loader {
             background: rgba(255, 255, 255, 0.8);
             backdrop-filter: blur(5px);
+        }
+
+        /* Rich Text Editor Typography Restores */
+        .prose ul {
+            list-style-type: disc !important;
+            padding-left: 1.5rem !important;
+            margin-top: 0.5rem !important;
+            margin-bottom: 0.5rem !important;
+        }
+
+        .prose ol {
+            list-style-type: decimal !important;
+            padding-left: 1.5rem !important;
+            margin-top: 0.5rem !important;
+            margin-bottom: 0.5rem !important;
+        }
+
+        .prose li {
+            margin-top: 0.25rem !important;
+            margin-bottom: 0.25rem !important;
         }
     </style>
 </head>
@@ -345,7 +385,8 @@
         // ==========================================
         //  CONFIGURATION: BACKEND URL
         // ==========================================
-        const API_URL = 'https://script.google.com/macros/s/AKfycbx1UbA87P8pOVAaRTMico8OcGhmlDneDmM29kaOzjhRJFAwCl6vDZsGoVnv45EGO6D6/exec';
+        // Base64 encoded to prevent casual scraping from source code inspection
+        const API_URL = atob('aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J4MVViQTg3UDhwT1ZBYVJUTWljbzhPY0dobWxEbmVEbU0yOWthT3pqaFJKRkF3Q2w2dkRac0dvVm52NDVFR082RDYvZXhlYw==');
 
         const DB_KEY_CURRENT = 'School_session_v2.8'; // Only stores session locally now
 
@@ -356,19 +397,148 @@
         const Crypto = {
             encrypt: (text) => {
                 try {
-                    return btoa(text + '_SALT_KCNHS');
+                    return btoa(text + '_YOUR_SALT_HERE_');
                 } catch (e) { return text; }
             },
             decrypt: (encoded) => {
                 try {
                     const decoded = atob(encoded);
-                    return decoded.replace('_SALT_KCNHS', '');
+                    return decoded.replace('_YOUR_SALT_HERE_', '');
                 } catch (e) { return encoded; }
             }
         };
 
+        /* ====================================================================
+         * BUILT-IN REPORT TYPES - v3.0
+         * ====================================================================
+         * These 11 report types are always available. They cannot be deleted
+         * by users. User-created types from the backend are merged alongside.
+         * ==================================================================== */
+        const BUILT_IN_REPORT_TYPES = [
+            {
+                id: 'learner_profile',
+                label: 'Learner Profile',
+                metricLabel: 'Total Learners',
+                unit: 'learners',
+                headers: ['LRN', 'Last Name', 'First Name', 'Middle Name', 'Suffix', 'Gender', 'Birthdate', 'Age', 'Ethnicity', 'Religion', 'Address', 'Contact No', 'Parent/Guardian', 'Guardian Contact', '4Ps', 'Weight (kg)', 'Height (m)', 'BMI', 'Nutritional Status', 'IP'],
+                color: 'blue',
+                icon: 'ph-student',
+                category: 'Reports',
+                builtIn: true
+            },
+            {
+                id: 'academic_performance',
+                label: 'Academic Performance',
+                metricLabel: 'Records Submitted',
+                unit: 'records',
+                headers: ['LRN', 'Last Name', 'First Name', 'Grade Level', 'Section', 'Subject', 'Q1', 'Q2', 'Q3', 'Q4', 'Final Rating', 'MPS', 'Remarks', 'Promotion Status'],
+                color: 'indigo',
+                icon: 'ph-exam',
+                category: 'Reports',
+                builtIn: true
+            },
+            {
+                id: 'attendance_records',
+                label: 'Attendance Records',
+                metricLabel: 'Records Submitted',
+                unit: 'records',
+                headers: ['LRN', 'Last Name', 'First Name', 'Grade Level', 'Section', 'Month', 'Total School Days', 'Days Present', 'Days Absent', 'Times Tardy', 'Attendance Rate (%)'],
+                color: 'teal',
+                icon: 'ph-calendar-check',
+                category: 'Reports',
+                builtIn: true
+            },
+            {
+                id: 'philiri_results',
+                label: 'PHIL-IRI Results',
+                metricLabel: 'Learners Assessed',
+                unit: 'learners',
+                headers: ['LRN', 'Last Name', 'First Name', 'Grade Level', 'Section', 'Pre-Test Oral', 'Pre-Test Silent', 'Pre-Test Level', 'Post-Test Oral', 'Post-Test Silent', 'Post-Test Level', 'Comprehension Score'],
+                color: 'rose',
+                icon: 'ph-book-open-text',
+                category: 'Reports',
+                builtIn: true
+            },
+            {
+                id: 'classroom_resources',
+                label: 'Classroom & Resources',
+                metricLabel: 'Rooms Inventoried',
+                unit: 'rooms',
+                headers: ['Room No', 'Room Type', 'Capacity', 'Current Enrollment', 'Student-Classroom Ratio', 'Armchairs Available', 'Student-Armchair Ratio', 'Textbooks Available', 'Textbook-Student Ratio', 'Learning Materials Status'],
+                color: 'amber',
+                icon: 'ph-chalkboard-teacher',
+                category: 'Reports',
+                builtIn: true
+            },
+            {
+                id: 'benefits_assistance',
+                label: 'Benefits & Assistance',
+                metricLabel: 'Beneficiaries',
+                unit: 'learners',
+                headers: ['LRN', 'Last Name', 'First Name', 'Grade Level', 'Section', 'Program Type', 'Program Name', 'Amount', 'Date Received', 'Status', 'Remarks'],
+                color: 'emerald',
+                icon: 'ph-hand-coins',
+                category: 'Reports',
+                builtIn: true
+            },
+            {
+                id: 'cocurricular_activities',
+                label: 'Co-Curricular Activities',
+                metricLabel: 'Participants',
+                unit: 'learners',
+                headers: ['LRN', 'Last Name', 'First Name', 'Grade Level', 'Section', 'Activity Type', 'Activity Name', 'Level of Participation', 'Award/Recognition', 'Date'],
+                color: 'violet',
+                icon: 'ph-trophy',
+                category: 'Reports',
+                builtIn: true
+            },
+            {
+                id: 'learner_progress',
+                label: 'Learner Progress & Engagement',
+                metricLabel: 'Records Created',
+                unit: 'records',
+                headers: ['LRN', 'Last Name', 'First Name', 'Grade Level', 'Section', 'Quarter', 'Progress Status', 'Report Card Issued', 'PTC Date', 'PTC Notes', 'Parent Feedback'],
+                color: 'cyan',
+                icon: 'ph-chart-line-up',
+                category: 'Reports',
+                builtIn: true
+            },
+            {
+                id: 'drrm_incident',
+                label: 'School DRRM & Incident Monitoring',
+                metricLabel: 'Incidents Recorded',
+                unit: 'incidents',
+                headers: ['Incident Date', 'Incident Type', 'Location', 'Description', 'Students Involved', 'Severity', 'Action Taken', 'Status', 'Reported By', 'Remarks'],
+                color: 'red',
+                icon: 'ph-warning-diamond',
+                category: 'DRRM',
+                builtIn: true
+            },
+            {
+                id: 'program_implementation',
+                label: 'Program Implementation (PIR)',
+                metricLabel: 'Programs Tracked',
+                unit: 'programs',
+                headers: ['Program Name', 'Objectives', 'Key Activities', 'Target', 'Accomplishment', 'Percentage', 'Timeline', 'Budget', 'Expenditure', 'Status', 'Remarks'],
+                color: 'sky',
+                icon: 'ph-clipboard-text',
+                category: 'Reports',
+                builtIn: true
+            },
+            {
+                id: 'instructional_supervision',
+                label: 'Instructional Supervision & TA',
+                metricLabel: 'Observations Done',
+                unit: 'observations',
+                headers: ['Teacher Name', 'Observer', 'Grade Level', 'Subject', 'Date', 'Time', 'Focus Area', 'Learning Objectives', 'Strategies', 'Findings', 'Learner Engagement', 'Classroom Management', 'TA Provided', 'Recommendations', 'Action Plan', 'Timeline', 'Observer Signature', 'Teacher Signature'],
+                color: 'fuchsia',
+                icon: 'ph-binoculars',
+                category: 'Reports',
+                builtIn: true
+            }
+        ];
+
         const App = {
-            // Data now comes from API, not LocalStorage
             // Data now comes from API, not LocalStorage
             users: [],
             user: null, // Loaded safely in init()
@@ -445,9 +615,10 @@
             },
 
             // --- PERMISSION HELPERS ---
+            /* v2.9.3: Added PSDS position to Principal powers, refined DRRM position check */
             isDev() { return this.user && (this.user.role === 'Developer' || this.user.position === 'System Developer' || this.user.id === 'USR-MOCK-DEV'); },
-            isPrincipal() { return this.user && (this.user.role === 'Principal' || this.user.role === 'Admin' || (this.user.position || '').includes('Principal')); },
-            isDrrm() { return this.user && (this.user.department === 'DRRM' || this.user.role === 'DRRM Officer' || (this.user.position || '').includes('DRRM')); },
+            isPrincipal() { return this.user && (this.user.role === 'Principal' || this.user.role === 'Admin' || (this.user.position || '').includes('Principal') || (this.user.position || '').includes('PSDS')); },
+            isDrrm() { return this.user && ((this.user.position || '').toUpperCase() === 'DRRM' || (this.user.position || '').includes('DRRM')); },
 
             isDeptHead() {
                 if (!this.user) return false;
@@ -549,7 +720,14 @@
                     if (resUsers) this.users = resUsers.users;
                     if (resPosts) this.posts = resPosts.posts;
                     if (resGroups) this.groups = resGroups.groups;
-                    if (resRepTypes) this.reportTypes = resRepTypes.reportTypes;
+                    // Merge built-in types with backend types (built-in always present)
+                    const backendTypes = (resRepTypes && resRepTypes.reportTypes) ? resRepTypes.reportTypes : [];
+                    const mergedTypes = [...BUILT_IN_REPORT_TYPES];
+                    backendTypes.forEach(bt => {
+                        if (!mergedTypes.find(m => m.id === bt.id)) mergedTypes.push(bt);
+                        else { /* Backend overrides for built-in (e.g., updated headers) */ const idx = mergedTypes.findIndex(m => m.id === bt.id); if (idx !== -1) mergedTypes[idx] = { ...mergedTypes[idx], ...bt, builtIn: true }; }
+                    });
+                    this.reportTypes = mergedTypes;
                     if (resReports) this.reports = resReports.reports;
                     if (resSettings && resSettings.settings) {
                         this.settings = { ...this.settings, ...resSettings.settings };
@@ -591,14 +769,16 @@
             },
 
             // --- GOD MODE & PRINCIPAL HELPERS ---
+            /* v2.9.3: Added PSDS position to Principal powers */
             isDev() { return this.user && this.user.role === 'Developer'; },
-            isPrincipal() { return this.user && (this.user.role === 'Principal' || this.user.role === 'Assistant Principal'); },
+            isPrincipal() { return this.user && (this.user.role === 'Principal' || this.user.role === 'Assistant Principal' || (this.user.position || '').includes('PSDS')); },
             isFaculty() { return this.user && this.user.role === 'Faculty'; },
 
             saveSession() { localStorage.setItem(DB_KEY_CURRENT, JSON.stringify(this.user)); },
 
             isDrrm() {
-                return this.user && (this.user.position || '').trim().toUpperCase() === 'DRRM';
+                /* v2.9.3: DRRM position users only get access to DRRM Corner */
+                return this.user && ((this.user.position || '').toUpperCase() === 'DRRM' || (this.user.position || '').includes('DRRM'));
             },
 
             renderDrrm(container) {
@@ -621,7 +801,7 @@
                 <i class="ph-fill ${type.icon} text-2xl text-${type.color}-500 relative z-10 mb-2"></i>
                 <h4 class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 relative z-10">${type.label}</h4>
                 <h3 class="text-2xl font-bold text-gray-900 relative z-10">${stats[type.id] || 0} <span class="text-sm font-medium text-gray-500">${type.unit || ''}</span></h3>
-                <p class="text-xs text-gray-500 font-medium relative z-10">${type.metricLabel} (Total)</p>
+                <p class="text-xs text-gray-500 font-medium relative z-10">${type.metricLabel}</p>
             </div>
         `).join('');
 
@@ -816,60 +996,7 @@
                 this.openModal(html);
             },
 
-            renderUserGuide() {
-                const isPrincipal = this.isPrincipal();
-                const isDev = this.isDev();
 
-                let guides = `
-                    <div class="space-y-6">
-                        <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                            <h4 class="font-bold text-blue-900 mb-2 flex items-center gap-2"><i class="ph-fill ph-student"></i> Faculty Basics</h4>
-                            <ul class="text-sm text-blue-800 space-y-2 list-disc list-inside">
-                                <li><strong>Bulletin Board:</strong> Posts are sorted newest first. You can like and comment on announcements.</li>
-                                <li><strong>Reports:</strong> Go to 'Reports' -> 'Submit Report'. Select 'Student General Information' to download the official Excel template.</li>
-                                <li><strong>Departments:</strong> Join departments using the Group ID provided by your Department Head.</li>
-                            </ul>
-                        </div>
-                `;
-
-                if (isPrincipal || isDev) {
-                    guides += `
-                        <div class="bg-purple-50 p-4 rounded-xl border border-purple-100">
-                            <h4 class="font-bold text-purple-900 mb-2 flex items-center gap-2"><i class="ph-fill ph-crown"></i> Administration</h4>
-                            <ul class="text-sm text-purple-800 space-y-2 list-disc list-inside">
-                                <li><strong>Manage Reports:</strong> You can define new Report Types via the 'Add Type' button in the Reports section.</li>
-                                <li><strong>Search:</strong> Use the search bar in Reports to filter submissions by Name, Date, or Type.</li>
-                                <li><strong>User Profiles:</strong> Click on any user avatar in a group to view their professional details.</li>
-                            </ul>
-                        </div>
-                    `;
-                }
-
-                if (isDev) {
-                    guides += `
-                        <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 text-gray-300">
-                            <h4 class="font-bold text-white mb-2 flex items-center gap-2"><i class="ph-fill ph-code"></i> Developer Mode</h4>
-                            <ul class="text-sm space-y-2 list-disc list-inside">
-                                <li><strong>System Reset:</strong> Use the 'Delete Group' or 'Delete Post' carefully.</li>
-                                <li><strong>Debug:</strong> Check console for API sync status.</li>
-                            </ul>
-                        </div>
-                    `;
-                }
-
-                guides += `</div>`;
-
-                const html = `
-                    <div class="flex justify-between items-center mb-6"><h3 class="text-lg font-bold text-gray-900">User Guide</h3><button onclick="App.closeModal()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200"><i class="ph ph-x"></i></button></div>
-                    <div class="max-h-[70vh] overflow-y-auto custom-scroll">
-                        ${guides}
-                        <div class="mt-8 pt-6 border-t border-gray-100 text-center">
-                            <p class="text-xs text-gray-400">School Portal &bull; <a href="#" class="text-brand-600 hover:underline">Contact Support</a></p>
-                        </div>
-                    </div>
-                `;
-                this.openModal(html);
-            },
 
             askPrompt(title, message, defaultValue = '', onSubmit) {
                 this.pendingCallback = onSubmit;
@@ -2047,8 +2174,8 @@
 
                     let mediaContent = '';
                     if (post.media) {
-                        if (post.mediaType === 'video') mediaContent = `<video src="${this.resolveImageUrl(post.media)}" controls class="w-full rounded-xl mt-3 mb-2 max-h-96 object-cover bg-black"></video>`;
-                        else mediaContent = `<img src="${this.resolveImageUrl(post.media)}" class="w-full rounded-xl mt-3 mb-2 max-h-96 object-cover bg-gray-100">`;
+                        if (post.mediaType === 'video') mediaContent = `<video src="${this.resolveImageUrl(post.media)}" controls class="w-full rounded-xl mt-3 mb-2 max-h-96 object-contain bg-black"></video>`;
+                        else mediaContent = `<img src="${this.resolveImageUrl(post.media)}" class="w-full rounded-xl mt-3 mb-2 max-h-96 object-contain bg-black">`;
                     }
 
                     return `
@@ -2070,7 +2197,7 @@
                                 </div>` : ''}
                             </div>
                         </div>
-                        <p class="text-gray-700 text-sm leading-relaxed mb-2">${post.content}</p>
+                        <div class="prose prose-sm max-w-none text-gray-700 leading-relaxed mb-2">${post.content}</div>
                         ${mediaContent}
                         <div class="flex items-center gap-6 text-gray-400 pt-3 border-t border-gray-50 mt-2">
                             <button id="like-btn-${post.id}" onclick="App.likePost(${post.id})" class="flex items-center gap-1.5 hover:text-red-500 transition-colors group"><i class="${likeClass} ph-heart text-lg group-hover:text-red-500 transition-transform active:scale-125"></i><span id="like-count-${post.id}" class="text-xs font-medium">${post.likes.length}</span></button>
@@ -2122,7 +2249,40 @@
                     <form onsubmit="App.handleSavePost(event)" class="space-y-4">
                         ${groupSelectHtml}
                         <div class="flex flex-col md:flex-row gap-4">
-                            <div class="flex-1"><textarea name="content" placeholder="What's happening?" class="input-field h-64 resize-none text-base w-full" required></textarea></div>
+                            <div class="flex-1 flex flex-col border border-gray-200 rounded-xl overflow-hidden bg-white">
+                                <!-- WYSIWYG Toolbar -->
+                                <div class="bg-gray-50 border-b border-gray-200 p-2 flex flex-wrap gap-1 items-center">
+                                    <button type="button" onclick="document.execCommand('bold', false, null)" class="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200 text-gray-700 font-bold" title="Bold">B</button>
+                                    <button type="button" onclick="document.execCommand('italic', false, null)" class="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200 text-gray-700 italic" title="Italic">I</button>
+                                    <button type="button" onclick="document.execCommand('underline', false, null)" class="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200 text-gray-700 underline" title="Underline">U</button>
+                                    <div class="w-[1px] h-5 bg-gray-300 mx-1"></div>
+                                    <button type="button" onclick="document.execCommand('justifyLeft', false, null)" class="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200 text-gray-700" title="Align Left"><i class="ph ph-text-align-left"></i></button>
+                                    <button type="button" onclick="document.execCommand('justifyCenter', false, null)" class="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200 text-gray-700" title="Align Center"><i class="ph ph-text-align-center"></i></button>
+                                    <button type="button" onclick="document.execCommand('justifyRight', false, null)" class="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200 text-gray-700" title="Align Right"><i class="ph ph-text-align-right"></i></button>
+                                    <div class="w-[1px] h-5 bg-gray-300 mx-1"></div>
+                                    <button type="button" onclick="document.execCommand('insertUnorderedList', false, null)" class="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200 text-gray-700" title="Bullet List"><i class="ph ph-list-bullets"></i></button>
+                                    <div class="w-[1px] h-5 bg-gray-300 mx-1"></div>
+                                    <select onchange="document.execCommand('fontSize', false, this.value); this.selectedIndex=0;" class="text-xs bg-transparent border-none text-gray-700 outline-none hover:bg-gray-200 rounded px-2 h-8 cursor-pointer">
+                                        <option value="" disabled selected>Size</option>
+                                        <option value="1">Small</option>
+                                        <option value="3">Normal</option>
+                                        <option value="5">Large</option>
+                                        <option value="7">Huge</option>
+                                    </select>
+                                    <select onchange="document.execCommand('fontName', false, this.value); this.selectedIndex=0;" class="text-xs bg-transparent border-none text-gray-700 outline-none hover:bg-gray-200 rounded px-2 h-8 cursor-pointer w-24">
+                                        <option value="" disabled selected>Font</option>
+                                        <option value="Arial">Arial</option>
+                                        <option value="Times New Roman">Times New</option>
+                                        <option value="Courier New">Courier</option>
+                                        <option value="Georgia">Georgia</option>
+                                        <option value="Verdana">Verdana</option>
+                                        <option value="Comic Sans MS">Comic Sans</option>
+                                    </select>
+                                </div>
+                                <!-- Editable Content Area -->
+                                <div id="post-editor-area" contenteditable="true" class="flex-1 p-4 h-64 overflow-y-auto w-full outline-none prose prose-sm max-w-none" placeholder="What's happening?"></div>
+                                <input type="hidden" name="content" id="post-hidden-input">
+                            </div>
                             <div class="w-full md:w-64 space-y-4">
                                 <div id="post-media-preview" class="hidden relative rounded-xl overflow-hidden bg-gray-100 border border-gray-200 h-40 w-full flex items-center justify-center"></div>
                                 <div class="space-y-2">
@@ -2145,12 +2305,22 @@
                             this.tempPostMedia = compressed;
                             this.tempPostMediaType = 'image';
                             const c = document.getElementById('post-media-preview');
-                            c.innerHTML = `<img src="${this.tempPostMedia}" class="w-full h-full object-cover"><button type="button" onclick="App.clearPostMedia()" class="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full hover:bg-red-500"><i class="ph-bold ph-x"></i></button>`;
+                            c.innerHTML = `<img src="${this.tempPostMedia}" class="w-full h-full object-contain bg-black"><button type="button" onclick="App.clearPostMedia()" class="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full hover:bg-red-500"><i class="ph-bold ph-x"></i></button>`;
                             c.classList.remove('hidden');
                         });
                     };
                     reader.readAsDataURL(input.files[0]);
                 }
+            },
+
+            clearPostMedia() {
+                this.tempPostMedia = null;
+                this.tempPostMediaType = null;
+                const c = document.getElementById('post-media-preview');
+                c.innerHTML = '';
+                c.classList.add('hidden');
+                const uploadInput = document.getElementById('post-media-upload');
+                if (uploadInput) uploadInput.value = '';
             },
 
             async handleSavePost(e) {
@@ -2160,6 +2330,18 @@
 
                 const formData = new FormData(e.target);
                 const data = Object.fromEntries(formData);
+
+                // Extract HTML from the contenteditable div
+                const editorArea = document.getElementById('post-editor-area');
+                let postContentHtml = editorArea ? editorArea.innerHTML.trim() : data.content;
+
+                // Fallback validation if empty
+                if (!postContentHtml || postContentHtml === '<br>') {
+                    this.toast('Announcement cannot be empty.');
+                    btn.disabled = false;
+                    btn.innerText = 'Post Announcement';
+                    return;
+                }
 
                 let departmentName = 'Faculty Member';
                 let groupAvatar = '';
@@ -2177,7 +2359,7 @@
                     avatar: this.user.avatar || `https://ui-avatars.com/api/?name=${this.user.firstName}+${this.user.lastName}`,
                     groupAvatar: groupAvatar,
                     time: new Date().toISOString(), // Standardized Date Storage (ISO)
-                    content: data.content,
+                    content: postContentHtml,
                     media: this.tempPostMedia,
                     mediaType: this.tempPostMediaType,
                     media: this.tempPostMedia,
@@ -2199,14 +2381,75 @@
 
             async editPost(postId) {
                 const post = this.posts.find(p => p.id === postId);
-                this.askPrompt('Edit Announcement', 'Update content:', post.content, async (newContent) => {
-                    if (newContent && newContent !== post.content) {
-                        post.content = newContent;
+                const overlay = document.getElementById('modal-overlay');
+                const content = document.getElementById('modal-content');
+                overlay.classList.remove('hidden');
+                setTimeout(() => { overlay.classList.remove('opacity-0'); content.classList.remove('translate-y-full', 'md:translate-y-10'); content.classList.add('md:translate-y-0'); }, 10);
+
+                // Reusable Toolbar HTML
+                const toolbarHtml = `
+                    <div class="bg-gray-50 border-b border-gray-200 p-2 flex flex-wrap gap-1 items-center">
+                        <button type="button" onclick="document.execCommand('bold', false, null)" class="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200 text-gray-700 font-bold" title="Bold">B</button>
+                        <button type="button" onclick="document.execCommand('italic', false, null)" class="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200 text-gray-700 italic" title="Italic">I</button>
+                        <button type="button" onclick="document.execCommand('underline', false, null)" class="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200 text-gray-700 underline" title="Underline">U</button>
+                        <div class="w-[1px] h-5 bg-gray-300 mx-1"></div>
+                        <button type="button" onclick="document.execCommand('justifyLeft', false, null)" class="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200 text-gray-700" title="Align Left"><i class="ph ph-text-align-left"></i></button>
+                        <button type="button" onclick="document.execCommand('justifyCenter', false, null)" class="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200 text-gray-700" title="Align Center"><i class="ph ph-text-align-center"></i></button>
+                        <button type="button" onclick="document.execCommand('justifyRight', false, null)" class="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200 text-gray-700" title="Align Right"><i class="ph ph-text-align-right"></i></button>
+                        <div class="w-[1px] h-5 bg-gray-300 mx-1"></div>
+                        <button type="button" onclick="document.execCommand('insertUnorderedList', false, null)" class="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200 text-gray-700" title="Bullet List"><i class="ph ph-list-bullets"></i></button>
+                        <div class="w-[1px] h-5 bg-gray-300 mx-1"></div>
+                        <select onchange="document.execCommand('fontSize', false, this.value); this.selectedIndex=0;" class="text-xs bg-transparent border-none text-gray-700 outline-none hover:bg-gray-200 rounded px-2 h-8 cursor-pointer">
+                            <option value="" disabled selected>Size</option>
+                            <option value="1">Small</option>
+                            <option value="3">Normal</option>
+                            <option value="5">Large</option>
+                            <option value="7">Huge</option>
+                        </select>
+                        <select onchange="document.execCommand('fontName', false, this.value); this.selectedIndex=0;" class="text-xs bg-transparent border-none text-gray-700 outline-none hover:bg-gray-200 rounded px-2 h-8 cursor-pointer w-24">
+                            <option value="" disabled selected>Font</option>
+                            <option value="Arial">Arial</option>
+                            <option value="Times New Roman">Times New</option>
+                            <option value="Courier New">Courier</option>
+                            <option value="Georgia">Georgia</option>
+                            <option value="Verdana">Verdana</option>
+                            <option value="Comic Sans MS">Comic Sans</option>
+                        </select>
+                    </div>
+                `;
+
+                content.innerHTML = `
+                    <div class="flex justify-between items-center mb-6"><h3 class="text-lg font-bold text-gray-900">Edit Announcement</h3><button onclick="App.closeModal()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200"><i class="ph ph-x"></i></button></div>
+                    <form id="edit-post-form" class="space-y-4">
+                        <div class="flex flex-col border border-gray-200 rounded-xl overflow-hidden bg-white">
+                            ${toolbarHtml}
+                            <div id="edit-post-editor-area" contenteditable="true" class="flex-1 p-4 h-64 overflow-y-auto w-full outline-none prose prose-sm max-w-none">${post.content}</div>
+                        </div>
+                        <button type="submit" id="edit-post-submit-btn" class="w-full bg-brand-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-brand-200 hover:bg-brand-700 active:scale-95 transition-all mt-2">Update Announcement</button>
+                    </form>
+                `;
+
+                document.getElementById('edit-post-form').onsubmit = async (e) => {
+                    e.preventDefault();
+                    const btn = document.getElementById('edit-post-submit-btn');
+                    btn.disabled = true; btn.innerText = 'Updating...';
+
+                    const newContentHtml = document.getElementById('edit-post-editor-area').innerHTML.trim();
+
+                    if (!newContentHtml || newContentHtml === '<br>') {
+                        this.toast('Announcement cannot be empty.');
+                        btn.disabled = false; btn.innerText = 'Update Announcement';
+                        return;
+                    }
+
+                    if (newContentHtml !== post.content) {
+                        post.content = newContentHtml;
                         await this.api('savePost', post);
                         this.toast('Post updated.');
                         this.renderHome(document.getElementById('main-view'));
                     }
-                });
+                    this.closeModal();
+                };
             },
 
             async deletePost(postId) {
@@ -2291,16 +2534,27 @@
                 const stats = {};
 
                 // FILTER 1: Only show Report TYPES that are NOT hidden (Soft Delete)
-                const visibleTypes = this.reportTypes.filter(t => t.status !== 'hidden');
+                let visibleTypes = this.reportTypes.filter(t => t.status !== 'hidden');
+                let reportsToProcess = this.reports;
+
+                // [SECURITY] Hide DRRM from unauthorized personnel
+                if (!(this.isDrrm() || this.isDev() || this.isPrincipal())) {
+                    visibleTypes = visibleTypes.filter(t => t.category !== 'DRRM');
+                    const drrmTypeIds = this.reportTypes.filter(t => t.category === 'DRRM').map(t => t.id);
+                    reportsToProcess = this.reports.filter(r => !drrmTypeIds.includes(r.typeId));
+                }
 
                 // FILTER 2: Reports are hard deleted, so we just count what is in the array.
                 // We map sums to the type IDs.
                 visibleTypes.forEach(type => {
-                    const total = this.reports.filter(r => r.typeId === type.id).reduce((sum, r) => sum + (parseInt(r.metricValue) || 0), 0);
+                    const total = reportsToProcess.filter(r => r.typeId === type.id).reduce((sum, r) => sum + (parseInt(r.metricValue) || 0), 0);
                     stats[type.id] = total;
                 });
 
-                const totalReports = this.reports.length; // Total active reports
+                const totalReports = reportsToProcess.length; // Total allowed reports
+                const totalTypes = visibleTypes.length;
+                const uniqueSubmitters = new Set(reportsToProcess.map(r => r.userId)).size;
+                const recentSubmissionsCount = reportsToProcess.filter(r => (new Date() - new Date(r.date)) < 7 * 24 * 60 * 60 * 1000).length;
 
                 const dynamicCards = visibleTypes.map(type => `
                     <div onclick="App.viewReportDetails('${type.id}')" class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden group cursor-pointer hover:border-brand-300 transition-all">
@@ -2308,13 +2562,83 @@
                         <i class="ph-fill ${type.icon} text-2xl text-${type.color}-500 relative z-10 mb-2"></i>
                         <h4 class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 relative z-10">${type.label}</h4>
                         <h3 class="text-2xl font-bold text-gray-900 relative z-10">${stats[type.id] || 0} <span class="text-sm font-medium text-gray-500">${type.unit || ''}</span></h3>
-                        <p class="text-xs text-gray-500 font-medium relative z-10">${type.metricLabel} (Total)</p>
+                        <p class="text-xs text-gray-500 font-medium relative z-10">${type.metricLabel}</p>
                     </div>
                 `).join('');
 
-                // [ADDED] Search Logic
+                // Group types by category for organized display
+                const categories = {};
+                // [ADDED] Search Logic pulled up
                 const searchTerm = (document.getElementById('report-search')?.value || '').toLowerCase();
-                const filteredReports = this.reports.filter(r =>
+
+                visibleTypes.forEach(type => {
+                    const cat = type.category || 'Other';
+                    if (!categories[cat]) categories[cat] = [];
+                    categories[cat].push(type);
+                });
+                const categoryOrder = ['Reports', 'Monitoring', 'Administrative', 'Other'];
+                const categoryIcons = { 'Reports': 'ph-chart-bar', 'Monitoring': 'ph-eye', 'Administrative': 'ph-gear-six', 'Other': 'ph-squares-four' };
+                const categoryColors = { 'Reports': 'blue', 'Monitoring': 'amber', 'Administrative': 'violet', 'Other': 'gray' };
+
+                const groupedCardsHtml = categoryOrder
+                    .filter(cat => categories[cat] && categories[cat].length > 0)
+                    .map(cat => {
+                        const types = categories[cat].filter(t => (t.label || '').toLowerCase().includes(searchTerm));
+                        if (types.length === 0) return '';
+
+                        const catColor = categoryColors[cat] || 'gray';
+                        const catIcon = categoryIcons[cat] || 'ph-squares-four';
+                        const cards = types.map(type => `
+                            <div onclick="App.viewReportDetails('${type.id}')" class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden group cursor-pointer hover:border-brand-300 transition-all">
+                                <div class="absolute right-[-10px] top-[-10px] bg-${type.color}-50 w-20 h-20 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
+                                <i class="ph-fill ${type.icon} text-2xl text-${type.color}-500 relative z-10 mb-2"></i>
+                                <h4 class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 relative z-10">${type.label}</h4>
+                                <h3 class="text-2xl font-bold text-gray-900 relative z-10">${stats[type.id] || 0} <span class="text-sm font-medium text-gray-500">${type.unit || ''}</span></h3>
+                                <p class="text-xs text-gray-500 font-medium relative z-10">${type.metricLabel}</p>
+                            </div>
+                        `).join('');
+                        return `
+                            <div class="mb-6">
+                                <div class="flex items-center gap-2 mb-3">
+                                    <i class="ph-fill ${catIcon} text-${catColor}-500 text-sm"></i>
+                                    <h4 class="text-xs font-bold text-${catColor}-700 uppercase tracking-widest">${cat}</h4>
+                                    <div class="flex-1 h-px bg-${catColor}-100"></div>
+                                    <span class="text-[10px] text-${catColor}-400 font-medium">${types.length} type${types.length > 1 ? 's' : ''}</span>
+                                </div>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">${cards}</div>
+                            </div>
+                        `;
+                    }).join('');
+
+                // Handle remaining custom categories
+                const remainingCats = Object.keys(categories).filter(c => !categoryOrder.includes(c));
+                const remainingHtml = remainingCats.map(cat => {
+                    const types = categories[cat].filter(t => (t.label || '').toLowerCase().includes(searchTerm));
+                    if (types.length === 0) return '';
+                    const cards = types.map(type => `
+                        <div onclick="App.viewReportDetails('${type.id}')" class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden group cursor-pointer hover:border-brand-300 transition-all">
+                            <div class="absolute right-[-10px] top-[-10px] bg-${type.color}-50 w-20 h-20 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
+                            <i class="ph-fill ${type.icon} text-2xl text-${type.color}-500 relative z-10 mb-2"></i>
+                            <h4 class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 relative z-10">${type.label}</h4>
+                            <h3 class="text-2xl font-bold text-gray-900 relative z-10">${stats[type.id] || 0} <span class="text-sm font-medium text-gray-500">${type.unit || ''}</span></h3>
+                            <p class="text-xs text-gray-500 font-medium relative z-10">${type.metricLabel}</p>
+                        </div>
+                    `).join('');
+                    return `
+                        <div class="mb-6">
+                            <div class="flex items-center gap-2 mb-3">
+                                <i class="ph-fill ph-tag text-gray-500 text-sm"></i>
+                                <h4 class="text-xs font-bold text-gray-700 uppercase tracking-widest">${cat}</h4>
+                                <div class="flex-1 h-px bg-gray-100"></div>
+                            </div>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">${cards}</div>
+                        </div>
+                    `;
+                }).join('');
+
+                const allGroupedCards = groupedCardsHtml + remainingHtml;
+
+                const filteredReports = reportsToProcess.filter(r =>
                     (r.typeLabel || '').toLowerCase().includes(searchTerm) ||
                     (r.user || '').toLowerCase().includes(searchTerm) ||
                     (r.date || '').toLowerCase().includes(searchTerm)
@@ -2329,7 +2653,8 @@
                             <input type="text" id="report-search" value="${document.getElementById('report-search')?.value || ''}" 
                                 oninput="App.renderReports(document.getElementById('main-view'))" 
                                 placeholder="Search reports by type, submitter, or date..." 
-                                class="w-full bg-white border border-gray-200 rounded-xl pl-12 pr-4 py-3 text-sm focus:ring-2 focus:ring-brand-100 outline-none shadow-sm transition-all" autofocus>
+                                class="w-full bg-white border border-gray-200 rounded-xl pl-12 pr-4 py-3 text-sm focus:ring-2 focus:ring-brand-100 outline-none shadow-sm transition-all" autofocus
+                                data-tooltip="<div class='mb-2'><b><i class='ph-fill ph-magnifying-glass text-brand-400'></i> Dynamic Search Bar</b></div><div class='text-gray-300'>Filters both the <b>aggregate categories</b> and the <b>list of recent submissions</b> below. Try typing a report type, submitter name, or date!</div>">
                         </div>
 
                         <h3 class="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wider mt-6">Kidapawan City Division Reports</h3>
@@ -2342,18 +2667,39 @@
                         <div class="flex justify-between items-end mb-6 pt-4 border-t border-gray-100">
                             <div><h2 class="text-2xl font-bold text-gray-900">School Data Overview</h2><p class="text-sm text-gray-500">Real-time Performance Metrics</p></div>
                             <div class="flex gap-2">
-                                ${this.canManageUsers() ? `<button onclick="App.openCreateReportTypeModal()" class="bg-gray-100 text-gray-600 rounded-xl px-4 py-2 text-sm font-bold hover:bg-gray-200 transition-colors" data-tooltip="Define a new category of reports"><i class="ph-bold ph-plus"></i> Add Type</button>` : ''}
-                                <button onclick="App.openSubmitModal()" class="bg-brand-600 text-white rounded-xl px-4 py-2 text-sm font-bold shadow-lg hover:bg-brand-700 transition-transform active:scale-95 flex items-center gap-2" data-tooltip="Upload an Excel/CSV report file"><i class="ph-bold ph-upload-simple"></i> Submit Report</button>
+                                ${this.canManageUsers() ? `<button onclick="App.openCreateReportTypeModal()" class="bg-gray-100 text-gray-600 rounded-xl px-4 py-2 text-sm font-bold hover:bg-gray-200 transition-colors" data-tooltip="<div class='mb-2'><b><i class='ph-fill ph-plus-circle text-gray-400'></i> Define New Report Type</b></div><div class='text-gray-300'>Configure a entirely new category of reports. Here you can define the <b>Metrics</b>, <b>Excel Template Headers</b>, and styling properties that will generate custom analytics for these future records.</div>"><i class="ph-bold ph-plus"></i> Add Type</button>` : ''}
+                                <button onclick="App.openSubmitModal()" class="bg-brand-600 text-white rounded-xl px-4 py-2 text-sm font-bold shadow-lg hover:bg-brand-700 transition-transform active:scale-95 flex items-center gap-2" data-tooltip="<div class='mb-2'><b><i class='ph-fill ph-upload-simple text-brand-400'></i> Submit Report Workflow</b></div><div class='space-y-2 text-gray-300'><p><b>Step 1:</b> Select the type of report you are submitting.</p><p><b>Step 2:</b> You can download a pre-formatted Excel template if you don't have one.</p><p><b>Step 3:</b> Upload your filled-in CSV/Excel file. The system will automatically parse the rows and calculate statistics (like MPS or Attendance Rates) before you submit!</p></div>"><i class="ph-bold ph-upload-simple"></i> Submit Report</button>
                             </div>
                         </div>
+                        ${allGroupedCards}
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                            ${dynamicCards}
                             <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden group">
                                 <div class="absolute right-[-10px] top-[-10px] bg-gray-50 w-20 h-20 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
                                 <i class="ph-fill ph-files text-2xl text-gray-500 relative z-10 mb-2"></i>
                                 <h4 class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 relative z-10">System</h4>
                                 <h3 class="text-2xl font-bold text-gray-900 relative z-10">${totalReports}</h3>
                                 <p class="text-xs text-gray-500 font-medium relative z-10">Total Submissions</p>
+                            </div>
+                            <div class="bg-blue-50 p-4 rounded-2xl border border-blue-100 shadow-sm relative overflow-hidden group">
+                                <div class="absolute right-[-10px] top-[-10px] bg-blue-100 w-20 h-20 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
+                                <i class="ph-fill ph-folders text-2xl text-blue-500 relative z-10 mb-2"></i>
+                                <h4 class="text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-1 relative z-10">Categories</h4>
+                                <h3 class="text-2xl font-bold text-blue-900 relative z-10">${totalTypes}</h3>
+                                <p class="text-xs text-blue-500 font-medium relative z-10">Active Categories</p>
+                            </div>
+                            <div class="bg-green-50 p-4 rounded-2xl border border-green-100 shadow-sm relative overflow-hidden group">
+                                <div class="absolute right-[-10px] top-[-10px] bg-green-100 w-20 h-20 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
+                                <i class="ph-fill ph-users text-2xl text-green-500 relative z-10 mb-2"></i>
+                                <h4 class="text-[10px] font-bold text-green-400 uppercase tracking-wider mb-1 relative z-10">Engagement</h4>
+                                <h3 class="text-2xl font-bold text-green-900 relative z-10">${uniqueSubmitters}</h3>
+                                <p class="text-xs text-green-500 font-medium relative z-10">Unique Submitters</p>
+                            </div>
+                            <div class="bg-purple-50 p-4 rounded-2xl border border-purple-100 shadow-sm relative overflow-hidden group">
+                                <div class="absolute right-[-10px] top-[-10px] bg-purple-100 w-20 h-20 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
+                                <i class="ph-fill ph-clock text-2xl text-purple-500 relative z-10 mb-2"></i>
+                                <h4 class="text-[10px] font-bold text-purple-400 uppercase tracking-wider mb-1 relative z-10">Activity</h4>
+                                <h3 class="text-2xl font-bold text-purple-900 relative z-10">${recentSubmissionsCount}</h3>
+                                <p class="text-xs text-purple-500 font-medium relative z-10">Last 7 Days</p>
                             </div>
                         </div>
                         <h3 class="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wider">Recent Submissions ${searchTerm ? '(Filtered)' : ''}</h3>
@@ -2389,117 +2735,158 @@
                 const items = this.reports.filter(r => r.typeId === typeId);
                 const total = items.reduce((sum, r) => sum + (parseInt(r.metricValue) || 0), 0);
 
-                // --- ANALYTICS AGGREGATION ---
-                // If this is Student Gen Info, we aggregate the JSON stats
+                // --- ANALYTICS AGGREGATION v3.0 ---
+                // Universal analytics aggregation for all 11 report types
                 let analyticsHtml = '';
-                const isStudentInfo = typeId === 'student_general_information' || (typeDef && typeDef.label === 'Student General Information');
 
-                if (isStudentInfo) {
-                    let agg = {
-                        gender: { male: 0, female: 0 },
-                        age: {},
-                        fourPs: { yes: 0, no: 0 },
-                        bmi: { total: 0, count: 0, underweight: 0, normal: 0, overweight: 0, obese: 0 },
-                        ips: { yes: 0, no: 0 }
-                    };
+                // Helper: Merge stats from all submissions
+                const mergeObj = (target, source) => { Object.keys(source).forEach(k => { target[k] = (target[k] || 0) + source[k]; }); };
+                const parseStats = (r) => { let s = r.stats; if (typeof s === 'string') { try { s = JSON.parse(s); } catch (e) { s = null; } } return s || {}; };
+                const makePairs = (obj, max = 6) => Object.entries(obj).sort((a, b) => b[1] - a[1]).slice(0, max);
+                const pairHtml = (pairs, color) => pairs.map(([k, v]) => `<div class="flex justify-between text-sm"><span class="text-${color}-600 font-medium">${k}</span> <span class="font-bold text-${color}-900">${v}</span></div>`).join('');
+                const card = (icon, title, content, color, span = '') => `<div class="bg-${color}-50 p-4 rounded-xl border border-${color}-100 relative overflow-hidden ${span}"><i class="ph-fill ${icon} absolute right-[-5px] bottom-[-5px] text-5xl text-${color}-200/50"></i><h4 class="text-[10px] font-bold text-${color}-800 uppercase tracking-wider mb-2">${title}</h4><div class="flex flex-col gap-1">${content}</div></div>`;
+                const statCard = (val, label, color) => `<div><span class="block text-2xl font-bold text-${color}-900">${val}</span><span class="text-[10px] text-${color}-600">${label}</span></div>`;
 
+                // ---- LEARNER PROFILE ----
+                if (typeId === 'learner_profile' || typeId === 'student_general_information' || (typeDef && typeDef.label === 'Student General Information')) {
+                    let agg = { gender: { male: 0, female: 0 }, age: {}, fourPs: { yes: 0, no: 0 }, bmi: { total: 0, count: 0, underweight: 0, normal: 0, overweight: 0, obese: 0 }, ips: { yes: 0, no: 0 } };
                     items.forEach(r => {
-                        let s = r.stats;
-                        if (typeof s === 'string') {
-                            try { s = JSON.parse(s); } catch (e) { s = null; }
-                        }
-
-                        if (s) {
-                            if (s.gender) {
-                                agg.gender.male += (s.gender.male || 0);
-                                agg.gender.female += (s.gender.female || 0);
-                            }
-                            if (s.fourPs) {
-                                agg.fourPs.yes += (s.fourPs.yes || 0);
-                                agg.fourPs.no += (s.fourPs.no || 0);
-                            }
-                            if (s.ips) {
-                                agg.ips.yes += (s.ips.yes || 0);
-                                agg.ips.no += (s.ips.no || 0);
-                            }
-                            if (s.age) {
-                                Object.keys(s.age).forEach(k => {
-                                    agg.age[k] = (agg.age[k] || 0) + s.age[k];
-                                });
-                            }
-                            if (s.bmi) {
-                                agg.bmi.total += (s.bmi.total || 0);
-                                agg.bmi.count += (s.bmi.count || 0);
-                                agg.bmi.underweight += (s.bmi.underweight || 0);
-                                agg.bmi.normal += (s.bmi.normal || 0);
-                                agg.bmi.overweight += (s.bmi.overweight || 0);
-                                agg.bmi.obese += (s.bmi.obese || 0);
-                            }
-                        }
+                        const s = parseStats(r);
+                        if (s.gender) { agg.gender.male += (s.gender.male || 0); agg.gender.female += (s.gender.female || 0); }
+                        if (s.fourPs) { agg.fourPs.yes += (s.fourPs.yes || 0); agg.fourPs.no += (s.fourPs.no || 0); }
+                        if (s.ips) { agg.ips.yes += (s.ips.yes || 0); agg.ips.no += (s.ips.no || 0); }
+                        if (s.age) mergeObj(agg.age, s.age);
+                        if (s.bmi) { agg.bmi.total += (s.bmi.total || 0); agg.bmi.count += (s.bmi.count || 0); agg.bmi.underweight += (s.bmi.underweight || 0); agg.bmi.normal += (s.bmi.normal || 0); agg.bmi.overweight += (s.bmi.overweight || 0); agg.bmi.obese += (s.bmi.obese || 0); }
                     });
-
-                    // Prepare Chart HTML
                     const avgBmi = agg.bmi.count > 0 ? (agg.bmi.total / agg.bmi.count).toFixed(1) : 'N/A';
-
-                    analyticsHtml = `
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                        <!-- Gender -->
-                        <div class="bg-blue-50 p-4 rounded-xl border border-blue-100 relative overflow-hidden">
-                            <i class="ph-fill ph-gender-intersex absolute right-[-5px] bottom-[-5px] text-5xl text-blue-200/50"></i>
-                            <h4 class="text-[10px] font-bold text-blue-800 uppercase tracking-wider mb-2">Gender</h4>
-                            <div class="flex flex-col gap-1">
-                                <div class="flex justify-between text-sm"><span class="text-blue-600 font-medium">Male</span> <span class="font-bold text-blue-900">${agg.gender.male}</span></div>
-                                <div class="flex justify-between text-sm"><span class="text-blue-600 font-medium">Female</span> <span class="font-bold text-blue-900">${agg.gender.female}</span></div>
-                            </div>
-                        </div>
-
-                        <!-- 4Ps -->
-                        <div class="bg-yellow-50 p-4 rounded-xl border border-yellow-100 relative overflow-hidden">
-                            <i class="ph-fill ph-hand-coins absolute right-[-5px] bottom-[-5px] text-5xl text-yellow-200/50"></i>
-                            <h4 class="text-[10px] font-bold text-yellow-800 uppercase tracking-wider mb-2">4Ps Status</h4>
-                            <div class="flex flex-col gap-1">
-                                <div class="flex justify-between text-sm"><span class="text-yellow-600 font-medium">Yes</span> <span class="font-bold text-yellow-900">${agg.fourPs.yes}</span></div>
-                                <div class="flex justify-between text-sm"><span class="text-yellow-600 font-medium">No</span> <span class="font-bold text-yellow-900">${agg.fourPs.no}</span></div>
-                            </div>
-                        </div>
-                        
-                        <!-- IPs -->
-                        <div class="bg-orange-50 p-4 rounded-xl border border-orange-100 relative overflow-hidden">
-                            <i class="ph-fill ph-users-three absolute right-[-5px] bottom-[-5px] text-5xl text-orange-200/50"></i>
-                            <h4 class="text-[10px] font-bold text-orange-800 uppercase tracking-wider mb-2">IP Status</h4>
-                            <div class="flex flex-col gap-1">
-                                <div class="flex justify-between text-sm"><span class="text-orange-600 font-medium">Yes</span> <span class="font-bold text-orange-900">${agg.ips.yes}</span></div>
-                                <div class="flex justify-between text-sm"><span class="text-orange-600 font-medium">No</span> <span class="font-bold text-orange-900">${agg.ips.no}</span></div>
-                            </div>
-                        </div>
-
-                         <!-- BMI -->
-                        <div class="bg-green-50 p-4 rounded-xl border border-green-100 relative overflow-hidden col-span-2">
-                            <i class="ph-fill ph-apple absolute right-[-5px] bottom-[-5px] text-5xl text-green-200/50"></i>
-                            <h4 class="text-[10px] font-bold text-green-800 uppercase tracking-wider mb-2">Health (BMI)</h4>
-                            <div class="flex items-center gap-6">
-                                <div><span class="block text-2xl font-bold text-green-900">${avgBmi}</span><span class="text-[10px] text-green-600">Avg Score</span></div>
-                                <div class="flex-1 space-y-1 border-l border-green-200 pl-4">
-                                     <div class="flex justify-between text-xs"><span class="text-green-700">Underweight</span> <span class="font-bold text-green-900">${agg.bmi.underweight}</span></div>
-                                     <div class="flex justify-between text-xs"><span class="text-green-700">Normal</span> <span class="font-bold text-green-900">${agg.bmi.normal}</span></div>
-                                     <div class="flex justify-between text-xs"><span class="text-green-700">Overwt/Obese</span> <span class="font-bold text-green-900">${agg.bmi.overweight + agg.bmi.obese}</span></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Age Brackets -->
-                         <div class="bg-purple-50 p-4 rounded-xl border border-purple-100 relative overflow-hidden col-span-2 md:col-span-4">
-                            <i class="ph-fill ph-cake absolute right-[-5px] bottom-[-5px] text-5xl text-purple-200/50"></i>
-                            <h4 class="text-[10px] font-bold text-purple-800 uppercase tracking-wider mb-2">Age Distribution</h4>
-                            <div class="flex divide-x divide-purple-200">
-                                <div class="flex-1 text-center"><div class="text-xs text-purple-600">11-13</div><div class="font-bold text-purple-900">${agg.age['11-13'] || 0}</div></div>
-                                <div class="flex-1 text-center"><div class="text-xs text-purple-600">14-16</div><div class="font-bold text-purple-900">${agg.age['14-16'] || 0}</div></div>
-                                <div class="flex-1 text-center"><div class="text-xs text-purple-600">17+</div><div class="font-bold text-purple-900">${agg.age['17+'] || 0}</div></div>
-                            </div>
-                        </div>
-
-                    </div>
-                    `;
+                    analyticsHtml = `<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        ${card('ph-gender-intersex', 'Gender', `<div class="flex justify-between text-sm"><span class="text-blue-600 font-medium">Male</span><span class="font-bold text-blue-900">${agg.gender.male}</span></div><div class="flex justify-between text-sm"><span class="text-blue-600 font-medium">Female</span><span class="font-bold text-blue-900">${agg.gender.female}</span></div>`, 'blue')}
+                        ${card('ph-hand-coins', '4Ps Status', `<div class="flex justify-between text-sm"><span class="text-yellow-600 font-medium">Yes</span><span class="font-bold text-yellow-900">${agg.fourPs.yes}</span></div><div class="flex justify-between text-sm"><span class="text-yellow-600 font-medium">No</span><span class="font-bold text-yellow-900">${agg.fourPs.no}</span></div>`, 'yellow')}
+                        ${card('ph-users-three', 'IP Status', `<div class="flex justify-between text-sm"><span class="text-orange-600 font-medium">Yes</span><span class="font-bold text-orange-900">${agg.ips.yes}</span></div><div class="flex justify-between text-sm"><span class="text-orange-600 font-medium">No</span><span class="font-bold text-orange-900">${agg.ips.no}</span></div>`, 'orange')}
+                        ${card('ph-apple', 'Health (BMI)', `<div class="flex items-center gap-6">${statCard(avgBmi, 'Avg BMI', 'green')}<div class="flex-1 space-y-1 border-l border-green-200 pl-4"><div class="flex justify-between text-xs"><span class="text-green-700">Underweight</span><span class="font-bold text-green-900">${agg.bmi.underweight}</span></div><div class="flex justify-between text-xs"><span class="text-green-700">Normal</span><span class="font-bold text-green-900">${agg.bmi.normal}</span></div><div class="flex justify-between text-xs"><span class="text-green-700">Overwt/Obese</span><span class="font-bold text-green-900">${agg.bmi.overweight + agg.bmi.obese}</span></div></div></div>`, 'green', 'col-span-2')}
+                        <div class="bg-purple-50 p-4 rounded-xl border border-purple-100 relative overflow-hidden col-span-2 md:col-span-4"><i class="ph-fill ph-cake absolute right-[-5px] bottom-[-5px] text-5xl text-purple-200/50"></i><h4 class="text-[10px] font-bold text-purple-800 uppercase tracking-wider mb-2">Age Distribution</h4><div class="flex divide-x divide-purple-200"><div class="flex-1 text-center"><div class="text-xs text-purple-600">11-13</div><div class="font-bold text-purple-900">${agg.age['11-13'] || 0}</div></div><div class="flex-1 text-center"><div class="text-xs text-purple-600">14-16</div><div class="font-bold text-purple-900">${agg.age['14-16'] || 0}</div></div><div class="flex-1 text-center"><div class="text-xs text-purple-600">17+</div><div class="font-bold text-purple-900">${agg.age['17+'] || 0}</div></div></div></div>
+                    </div>`;
+                }
+                // ---- ACADEMIC PERFORMANCE ----
+                else if (typeId === 'academic_performance') {
+                    let agg = { subjectAvg: {}, mpsAvg: { total: 0, count: 0 }, overallAvg: { total: 0, count: 0 }, promotionStatus: { promoted: 0, retained: 0, other: 0 }, passFail: { passed: 0, failed: 0 }, gradeLevel: {} };
+                    items.forEach(r => { const s = parseStats(r); if (s.subjectAvg) Object.entries(s.subjectAvg).forEach(([k, v]) => { if (!agg.subjectAvg[k]) agg.subjectAvg[k] = { total: 0, count: 0 }; agg.subjectAvg[k].total += (v.total || 0); agg.subjectAvg[k].count += (v.count || 0); }); if (s.mpsAvg) { agg.mpsAvg.total += (s.mpsAvg.total || 0); agg.mpsAvg.count += (s.mpsAvg.count || 0); } if (s.overallAvg) { agg.overallAvg.total += (s.overallAvg.total || 0); agg.overallAvg.count += (s.overallAvg.count || 0); } if (s.promotionStatus) { agg.promotionStatus.promoted += (s.promotionStatus.promoted || 0); agg.promotionStatus.retained += (s.promotionStatus.retained || 0); } if (s.passFail) { agg.passFail.passed += (s.passFail.passed || 0); agg.passFail.failed += (s.passFail.failed || 0); } if (s.gradeLevel) mergeObj(agg.gradeLevel, s.gradeLevel); });
+                    const avgMPS = agg.mpsAvg.count > 0 ? (agg.mpsAvg.total / agg.mpsAvg.count).toFixed(1) : 'N/A';
+                    const avgGPA = agg.overallAvg.count > 0 ? (agg.overallAvg.total / agg.overallAvg.count).toFixed(1) : 'N/A';
+                    const subjectCards = Object.entries(agg.subjectAvg).slice(0, 8).map(([k, v]) => `<div class="flex justify-between text-xs"><span class="text-indigo-600 truncate mr-2">${k}</span><span class="font-bold text-indigo-900">${v.count > 0 ? (v.total / v.count).toFixed(1) : 'N/A'}</span></div>`).join('');
+                    analyticsHtml = `<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        ${card('ph-chart-bar', 'Average MPS', statCard(avgMPS, 'Mean Percentage Score', 'indigo'), 'indigo')}
+                        ${card('ph-graduation-cap', 'Average GPA', statCard(avgGPA, 'Grade Point Average', 'blue'), 'blue')}
+                        ${card('ph-check-circle', 'Promotion', `<div class="flex justify-between text-sm"><span class="text-green-600 font-medium">Promoted</span><span class="font-bold text-green-900">${agg.promotionStatus.promoted}</span></div><div class="flex justify-between text-sm"><span class="text-red-600 font-medium">Retained</span><span class="font-bold text-red-900">${agg.promotionStatus.retained}</span></div>`, 'green')}
+                        ${card('ph-exam', 'Pass / Fail', `<div class="flex justify-between text-sm"><span class="text-emerald-600 font-medium">Passed</span><span class="font-bold text-emerald-900">${agg.passFail.passed}</span></div><div class="flex justify-between text-sm"><span class="text-red-600 font-medium">Failed</span><span class="font-bold text-red-900">${agg.passFail.failed}</span></div>`, 'emerald')}
+                        ${subjectCards ? card('ph-books', 'Subject Averages', subjectCards, 'violet', 'col-span-2 md:col-span-4') : ''}
+                    </div>`;
+                }
+                // ---- ATTENDANCE RECORDS ----
+                else if (typeId === 'attendance_records') {
+                    let agg = { totalDays: 0, totalPresent: 0, totalAbsent: 0, totalTardy: 0, avgAttendance: { total: 0, count: 0 } };
+                    items.forEach(r => { const s = parseStats(r); agg.totalDays += (s.totalDays || 0); agg.totalPresent += (s.totalPresent || 0); agg.totalAbsent += (s.totalAbsent || 0); agg.totalTardy += (s.totalTardy || 0); if (s.avgAttendance) { agg.avgAttendance.total += (s.avgAttendance.total || 0); agg.avgAttendance.count += (s.avgAttendance.count || 0); } });
+                    const avgRate = agg.avgAttendance.count > 0 ? (agg.avgAttendance.total / agg.avgAttendance.count).toFixed(1) + '%' : 'N/A';
+                    analyticsHtml = `<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        ${card('ph-chart-pie-slice', 'Avg Attendance', statCard(avgRate, 'Overall Rate', 'teal'), 'teal')}
+                        ${card('ph-calendar-check', 'Days Present', statCard(agg.totalPresent.toLocaleString(), 'Total Days', 'green'), 'green')}
+                        ${card('ph-calendar-x', 'Days Absent', statCard(agg.totalAbsent.toLocaleString(), 'Total Days', 'red'), 'red')}
+                        ${card('ph-clock-countdown', 'Times Tardy', statCard(agg.totalTardy.toLocaleString(), 'Total Count', 'amber'), 'amber')}
+                    </div>`;
+                }
+                // ---- PHIL-IRI RESULTS ----
+                else if (typeId === 'philiri_results') {
+                    let agg = { preLevel: { frustration: 0, instructional: 0, independent: 0 }, postLevel: { frustration: 0, instructional: 0, independent: 0 }, avgComprehension: { total: 0, count: 0 }, improvement: 0, count: 0 };
+                    items.forEach(r => { const s = parseStats(r); if (s.preLevel) { agg.preLevel.frustration += (s.preLevel.frustration || 0); agg.preLevel.instructional += (s.preLevel.instructional || 0); agg.preLevel.independent += (s.preLevel.independent || 0); } if (s.postLevel) { agg.postLevel.frustration += (s.postLevel.frustration || 0); agg.postLevel.instructional += (s.postLevel.instructional || 0); agg.postLevel.independent += (s.postLevel.independent || 0); } if (s.avgComprehension) { agg.avgComprehension.total += (s.avgComprehension.total || 0); agg.avgComprehension.count += (s.avgComprehension.count || 0); } agg.count++; });
+                    const avgComp = agg.avgComprehension.count > 0 ? (agg.avgComprehension.total / agg.avgComprehension.count).toFixed(1) : 'N/A';
+                    analyticsHtml = `<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        ${card('ph-book-open', 'Pre-Test Levels', `<div class="flex justify-between text-xs"><span class="text-rose-600">Frustration</span><span class="font-bold text-rose-900">${agg.preLevel.frustration}</span></div><div class="flex justify-between text-xs"><span class="text-rose-600">Instructional</span><span class="font-bold text-rose-900">${agg.preLevel.instructional}</span></div><div class="flex justify-between text-xs"><span class="text-rose-600">Independent</span><span class="font-bold text-rose-900">${agg.preLevel.independent}</span></div>`, 'rose')}
+                        ${card('ph-book-open-text', 'Post-Test Levels', `<div class="flex justify-between text-xs"><span class="text-green-600">Frustration</span><span class="font-bold text-green-900">${agg.postLevel.frustration}</span></div><div class="flex justify-between text-xs"><span class="text-green-600">Instructional</span><span class="font-bold text-green-900">${agg.postLevel.instructional}</span></div><div class="flex justify-between text-xs"><span class="text-green-600">Independent</span><span class="font-bold text-green-900">${agg.postLevel.independent}</span></div>`, 'green')}
+                        ${card('ph-brain', 'Comprehension', statCard(avgComp, 'Avg Score (%)', 'blue'), 'blue')}
+                        ${card('ph-trend-up', 'Improvement', statCard((agg.postLevel.independent - agg.preLevel.independent > 0 ? '+' : '') + ((agg.postLevel.independent + agg.postLevel.instructional) - (agg.preLevel.independent + agg.preLevel.instructional)), 'More readers at level', 'emerald'), 'emerald')}
+                    </div>`;
+                }
+                // ---- CLASSROOM & RESOURCES ----
+                else if (typeId === 'classroom_resources') {
+                    let agg = { totalRooms: 0, totalCapacity: 0, totalEnrollment: 0, totalArmchairs: 0, totalTextbooks: 0 };
+                    items.forEach(r => { const s = parseStats(r); agg.totalRooms += (s.totalRooms || 0); agg.totalCapacity += (s.totalCapacity || 0); agg.totalEnrollment += (s.totalEnrollment || 0); agg.totalArmchairs += (s.totalArmchairs || 0); agg.totalTextbooks += (s.totalTextbooks || 0); });
+                    const scrRatio = agg.totalRooms > 0 ? (agg.totalEnrollment / agg.totalRooms).toFixed(1) + ':1' : 'N/A';
+                    const sarRatio = agg.totalArmchairs > 0 ? (agg.totalEnrollment / agg.totalArmchairs).toFixed(2) + ':1' : 'N/A';
+                    const tbrRatio = agg.totalTextbooks > 0 ? (agg.totalTextbooks / agg.totalEnrollment * 100).toFixed(0) + '%' : 'N/A';
+                    analyticsHtml = `<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        ${card('ph-house', 'Total Rooms', statCard(agg.totalRooms, 'Inventoried', 'amber'), 'amber')}
+                        ${card('ph-users', 'Student:Classroom', statCard(scrRatio, 'Ratio', 'blue'), 'blue')}
+                        ${card('ph-chair', 'Student:Armchair', statCard(sarRatio, 'Ratio', 'violet'), 'violet')}
+                        ${card('ph-book', 'Textbook Coverage', statCard(tbrRatio, 'of Learners', 'green'), 'green')}
+                    </div>`;
+                }
+                // ---- BENEFITS & ASSISTANCE ----
+                else if (typeId === 'benefits_assistance') {
+                    let agg = { programTypes: {}, totalAmount: 0, totalBeneficiaries: 0 };
+                    items.forEach(r => { const s = parseStats(r); if (s.programTypes) mergeObj(agg.programTypes, s.programTypes); agg.totalAmount += (s.totalAmount || 0); agg.totalBeneficiaries += (s.totalBeneficiaries || 0); });
+                    const progCards = pairHtml(makePairs(agg.programTypes), 'emerald');
+                    analyticsHtml = `<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        ${card('ph-users', 'Beneficiaries', statCard(agg.totalBeneficiaries.toLocaleString(), 'Total Learners', 'emerald'), 'emerald')}
+                        ${card('ph-currency-circle-dollar', 'Total Amount', statCard('₱' + agg.totalAmount.toLocaleString(), 'Disbursed', 'green'), 'green')}
+                        ${progCards ? card('ph-list-checks', 'By Program', progCards, 'teal', 'col-span-2') : ''}
+                    </div>`;
+                }
+                // ---- CO-CURRICULAR ACTIVITIES ----
+                else if (typeId === 'cocurricular_activities') {
+                    let agg = { activityTypes: {}, participationLevels: {}, awardCount: 0, totalParticipants: 0 };
+                    items.forEach(r => { const s = parseStats(r); if (s.activityTypes) mergeObj(agg.activityTypes, s.activityTypes); if (s.participationLevels) mergeObj(agg.participationLevels, s.participationLevels); agg.awardCount += (s.awardCount || 0); agg.totalParticipants += (s.totalParticipants || 0); });
+                    analyticsHtml = `<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        ${card('ph-users', 'Participants', statCard(agg.totalParticipants.toLocaleString(), 'Total', 'violet'), 'violet')}
+                        ${card('ph-trophy', 'Awards', statCard(agg.awardCount.toLocaleString(), 'Recognitions', 'amber'), 'amber')}
+                        ${card('ph-flag-banner', 'Activity Types', pairHtml(makePairs(agg.activityTypes), 'indigo'), 'indigo')}
+                        ${card('ph-medal', 'Participation Level', pairHtml(makePairs(agg.participationLevels), 'blue'), 'blue')}
+                    </div>`;
+                }
+                // ---- LEARNER PROGRESS & ENGAGEMENT ----
+                else if (typeId === 'learner_progress') {
+                    let agg = { progressStatus: {}, reportCardIssued: { yes: 0, no: 0 }, ptcCompleted: 0, totalRecords: 0 };
+                    items.forEach(r => { const s = parseStats(r); if (s.progressStatus) mergeObj(agg.progressStatus, s.progressStatus); if (s.reportCardIssued) { agg.reportCardIssued.yes += (s.reportCardIssued.yes || 0); agg.reportCardIssued.no += (s.reportCardIssued.no || 0); } agg.ptcCompleted += (s.ptcCompleted || 0); agg.totalRecords += (s.totalRecords || 0); });
+                    analyticsHtml = `<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        ${card('ph-file-text', 'Total Records', statCard(agg.totalRecords.toLocaleString(), 'Progress Reports', 'cyan'), 'cyan')}
+                        ${card('ph-clipboard-text', 'Report Cards', `<div class="flex justify-between text-sm"><span class="text-cyan-600 font-medium">Issued</span><span class="font-bold text-cyan-900">${agg.reportCardIssued.yes}</span></div><div class="flex justify-between text-sm"><span class="text-cyan-600 font-medium">Pending</span><span class="font-bold text-cyan-900">${agg.reportCardIssued.no}</span></div>`, 'cyan')}
+                        ${card('ph-chats', 'PTC Sessions', statCard(agg.ptcCompleted.toLocaleString(), 'Conferences Held', 'blue'), 'blue')}
+                        ${card('ph-chart-line-up', 'Progress Status', pairHtml(makePairs(agg.progressStatus), 'teal'), 'teal')}
+                    </div>`;
+                }
+                // ---- DRRM & INCIDENT MONITORING ----
+                else if (typeId === 'drrm_incident') {
+                    let agg = { incidentTypes: {}, severityCounts: {}, statusCounts: {}, totalIncidents: 0, totalStudentsInvolved: 0 };
+                    items.forEach(r => { const s = parseStats(r); if (s.incidentTypes) mergeObj(agg.incidentTypes, s.incidentTypes); if (s.severityCounts) mergeObj(agg.severityCounts, s.severityCounts); if (s.statusCounts) mergeObj(agg.statusCounts, s.statusCounts); agg.totalIncidents += (s.totalIncidents || 0); agg.totalStudentsInvolved += (s.totalStudentsInvolved || 0); });
+                    analyticsHtml = `<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        ${card('ph-warning-diamond', 'Total Incidents', statCard(agg.totalIncidents.toLocaleString(), 'Recorded', 'red'), 'red')}
+                        ${card('ph-student', 'Students Involved', statCard(agg.totalStudentsInvolved.toLocaleString(), 'Affected', 'orange'), 'orange')}
+                        ${card('ph-fire', 'Incident Types', pairHtml(makePairs(agg.incidentTypes), 'rose'), 'rose')}
+                        ${card('ph-shield-check', 'Severity & Status', `${pairHtml(makePairs(agg.severityCounts, 3), 'amber')}<div class="border-t border-amber-200 mt-2 pt-2">${pairHtml(makePairs(agg.statusCounts, 3), 'amber')}</div>`, 'amber')}
+                    </div>`;
+                }
+                // ---- PROGRAM IMPLEMENTATION (PIR) ----
+                else if (typeId === 'program_implementation') {
+                    let agg = { statusCounts: {}, avgPercentage: { total: 0, count: 0 }, totalBudget: 0, totalExpenditure: 0, totalPrograms: 0 };
+                    items.forEach(r => { const s = parseStats(r); if (s.statusCounts) mergeObj(agg.statusCounts, s.statusCounts); if (s.avgPercentage) { agg.avgPercentage.total += (s.avgPercentage.total || 0); agg.avgPercentage.count += (s.avgPercentage.count || 0); } agg.totalBudget += (s.totalBudget || 0); agg.totalExpenditure += (s.totalExpenditure || 0); agg.totalPrograms += (s.totalPrograms || 0); });
+                    const avgPct = agg.avgPercentage.count > 0 ? (agg.avgPercentage.total / agg.avgPercentage.count).toFixed(1) + '%' : 'N/A';
+                    const utilization = agg.totalBudget > 0 ? (agg.totalExpenditure / agg.totalBudget * 100).toFixed(1) + '%' : 'N/A';
+                    analyticsHtml = `<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        ${card('ph-clipboard-text', 'Programs', statCard(agg.totalPrograms.toLocaleString(), 'Total Tracked', 'sky'), 'sky')}
+                        ${card('ph-chart-pie-slice', 'Avg Completion', statCard(avgPct, 'Accomplishment Rate', 'blue'), 'blue')}
+                        ${card('ph-currency-circle-dollar', 'Budget vs Spend', `${statCard('₱' + agg.totalBudget.toLocaleString(), 'Total Budget', 'sky')}<div class="mt-2">${statCard('₱' + agg.totalExpenditure.toLocaleString(), 'Total Spent', 'sky')}</div><div class="mt-1 text-xs font-bold text-sky-700">Utilization: ${utilization}</div>`, 'sky')}
+                        ${card('ph-flag-banner', 'Status Breakdown', pairHtml(makePairs(agg.statusCounts), 'teal'), 'teal')}
+                    </div>`;
+                }
+                // ---- INSTRUCTIONAL SUPERVISION ----
+                else if (typeId === 'instructional_supervision') {
+                    let agg = { totalObservations: 0, focusAreas: {}, subjects: {}, teachers: {} };
+                    items.forEach(r => { const s = parseStats(r); agg.totalObservations += (s.totalObservations || 0); if (s.focusAreas) mergeObj(agg.focusAreas, s.focusAreas); if (s.subjects) mergeObj(agg.subjects, s.subjects); if (s.teachers) mergeObj(agg.teachers, s.teachers); });
+                    analyticsHtml = `<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        ${card('ph-binoculars', 'Observations', statCard(agg.totalObservations.toLocaleString(), 'Total Conducted', 'fuchsia'), 'fuchsia')}
+                        ${card('ph-chalkboard-teacher', 'Teachers Observed', statCard(Object.keys(agg.teachers).length, 'Unique Teachers', 'violet'), 'violet')}
+                        ${card('ph-crosshair', 'Focus Areas', pairHtml(makePairs(agg.focusAreas), 'purple'), 'purple')}
+                        ${card('ph-book-open', 'Subjects', pairHtml(makePairs(agg.subjects), 'indigo'), 'indigo')}
+                    </div>`;
                 }
 
 
@@ -2756,28 +3143,45 @@
                         <!-- 1. Reports & Analytics (Priority) -->
                         <section>
                             <h4 class="text-lg font-bold text-brand-600 border-b border-brand-100 pb-2 mb-4 flex items-center gap-2"><i class="ph-fill ph-chart-bar"></i> Reports & Analytics</h4>
-                            <div class="space-y-4 text-sm text-gray-600">
-                                <p>We've designed the reporting system to be as simple as possible. Here is how to handle your data:</p>
-                                <div class="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
-                                    <h5 class="font-bold text-gray-900 mb-2">📥 Submitting a Report</h5>
-                                    <ol class="list-decimal list-inside space-y-2 ml-1">
-                                        <li>Go to the <strong>Reports</strong> tab.</li>
-                                        <li>Click the <strong>Submit Report</strong> button.</li>
-                                        <li>Select your <strong>Report Type</strong> (e.g., "Student General Info", "GPA", "TOS").</li>
-                                        <li><strong>Download the Template</strong> provided in the modal. <span class="text-red-500 text-xs">(Important: Do not rename the file structure!)</span></li>
-                                        <li>Fill out the Excel/CSV file and save it.</li>
-                                        <li>Upload the file back into the modal. The system will <strong>automatically calculate</strong> the totals for you!</li>
-                                        <li>Click <strong>Submit</strong>. Done!</li>
+                            <div class="space-y-6 text-sm text-gray-600">
+                                <p class="leading-relaxed">The Reports & Analytics module is the core data engine of the School Portal. It allows you to submit structured data (via Excel/CSV) and instantly visualize it on dynamic dashboards. We built this to be as seamless as possible—just download a template, fill it in, upload, and the system does the parsing and math for you!</p>
+                                
+                                <div class="bg-blue-50 border border-blue-100 rounded-xl p-5 shadow-sm">
+                                    <h5 class="text-blue-900 font-bold mb-3 flex items-center gap-2"><i class="ph-fill ph-plus-circle text-blue-500"></i> Defining a New Report Type (Admins Only)</h5>
+                                    <p class="mb-3 text-blue-800">If the 11 built-in report types are not enough, Administrators can define custom report types. This tells the system how to read future uploads.</p>
+                                    <ol class="list-decimal list-inside space-y-2 ml-1 text-blue-900">
+                                        <li>Go to the <strong>Reports & Analytics</strong> tab on the sidebar.</li>
+                                        <li>Click the white <strong>Add Type</strong> button near the top right of the dashboard.</li>
+                                        <li><strong>Title & Unit:</strong> Enter a recognizable name (e.g., "Monthly PTA Meeting") and the metric unit you are tracking (e.g., "Attendees").</li>
+                                        <li><strong>Category:</strong> Assign it to a category (like <i>Monitoring</i> or <i>Administrative</i>) to group it beautifully on the dashboard.</li>
+                                        <li><strong>Excel Headers:</strong> Decide what data headers your Excel template will have (e.g., "Name, Role, Time In"). Separate them by commas. The system will auto-add a "Total" column.</li>
+                                        <li><strong>Styling:</strong> Pick a color scheme and a matching icon.</li>
+                                        <li>Click <strong>Create Definition</strong>. The new report type will instantly appear as an aggregate card on the dashboard!</li>
                                     </ol>
                                 </div>
-                                <div class="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
-                                    <h5 class="font-bold text-gray-900 mb-2">🔍 Finding & Analyzing Data</h5>
-                                    <ul class="list-disc list-inside space-y-2 ml-1">
-                                        <li><strong>Search:</strong> Use the search bar to find specific reports by Name, Date, or Type.</li>
-                                        <li><strong>Cards:</strong> Click on any colorful report card (e.g., "Enrollees", "Incidents") to see a detailed table of all submissions for that category.</li>
-                                        <li><strong>File Access:</strong> You can view the original proof file for any submission by clicking "View File".</li>
+
+                                <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+                                    <h5 class="font-bold text-gray-900 mb-3 flex items-center gap-2"><i class="ph-fill ph-upload-simple text-gray-500"></i> Submitting a Report Workflow</h5>
+                                    <p class="mb-3">Anyone with teaching or administrative access can submit reports to the defined report types.</p>
+                                    <ul class="space-y-3">
+                                        <li class="leading-relaxed"><span class="bg-gray-100 px-2 py-0.5 rounded text-xs font-bold text-gray-600 mr-2 align-middle inline-block">Step 1</span> Select <strong>Submit Report</strong> from the Reports tab. Choose the specific Report Type from the dropdown.</li>
+                                        <li class="leading-relaxed"><span class="bg-gray-100 px-2 py-0.5 rounded text-xs font-bold text-gray-600 mr-2 align-middle inline-block">Step 2</span> If you haven't prepared your file yet, click <strong>Download Template</strong>. The system will generate an exact '.xlsx' file tailored perfectly to the headers of that specific report. <span class="text-red-500 font-medium">Do not rename or rearrange the template's columns!</span></li>
+                                        <li class="leading-relaxed"><span class="bg-gray-100 px-2 py-0.5 rounded text-xs font-bold text-gray-600 mr-2 align-middle inline-block">Step 3</span> Fill your data in the template using MS Excel or Google Sheets. Save as '.xlsx' or '.csv'.</li>
+                                        <li class="leading-relaxed"><span class="bg-gray-100 px-2 py-0.5 rounded text-xs font-bold text-gray-600 mr-2 align-middle inline-block">Step 4</span> Click <strong>Select Excel/CSV File</strong> and choose your filled template.</li>
+                                        <li class="leading-relaxed"><span class="bg-gray-100 px-2 py-0.5 rounded text-xs font-bold text-gray-600 mr-2 align-middle inline-block">Step 5</span> <strong>Auto-Math Analysis:</strong> As soon as you select the file, the system's smart parser will read the file and automatically calculate your total metric value (like counting total learners, or summing up budgets).</li>
+                                        <li class="leading-relaxed"><span class="bg-gray-100 px-2 py-0.5 rounded text-xs font-bold text-gray-600 mr-2 align-middle inline-block">Step 6</span> Click <strong>Submit</strong>. Your data is uploaded, and the aggregate dashboard will instantly update!</li>
                                     </ul>
                                 </div>
+
+                                <div class="bg-gray-50 border border-gray-200 rounded-xl p-5 shadow-sm">
+                                    <h5 class="font-bold text-gray-900 mb-2 flex items-center gap-2"><i class="ph-fill ph-magnifying-glass text-gray-500"></i> Finding & Analyzing Data</h5>
+                                    <ul class="list-disc list-inside space-y-2 ml-1">
+                                        <li><strong>Global Search:</strong> The search bar at the top of the Reports page filters both the categorized cards and the recent submissions list. Try typing dates, submitter names, or report names.</li>
+                                        <li><strong>Aggregate Dashboards:</strong> Clicking any big colored card on the Reports view opens a comprehensive Analytics pop-up detailing all merged data submitted under that type across the whole school.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </section>
                             </div>
                         </section>
 
@@ -2850,11 +3254,14 @@
                     if (!tip) {
                         tip = document.createElement('div');
                         tip.id = 'app-tooltip-container';
-                        tip.className = 'app-tooltip fixed z-[100] pointer-events-none bg-gray-900 text-white text-xs p-2 rounded-lg shadow-xl max-w-xs animate-fade-in hidden';
+                        tip.className = 'app-tooltip fixed z-[100] pointer-events-none bg-gray-900 border border-gray-700 text-white text-xs p-3 rounded-xl shadow-2xl max-w-sm animate-fade-in hidden leading-relaxed';
+                        // Add some rich styles dynamically for guides
+                        tip.style.transition = 'opacity 0.2s';
                         document.body.appendChild(tip);
                     }
 
-                    tip.innerText = target.dataset.tooltip; // Secure text
+                    // [ADDED] Support Rich HTML Tooltips
+                    tip.innerHTML = target.dataset.tooltip;
                     tip.classList.remove('hidden');
 
                     // Smart Positioning
@@ -3012,72 +3419,172 @@
                             const headers = jsonData[0].map(h => String(h).toLowerCase().trim());
                             const totalColIndex = headers.indexOf('total');
 
-                            // --- NEW: ANALYTICS PARSING ---
-                            // We look for specific columns: Gender, Age, 4Ps, Weight, Height
-                            let stats = {
-                                gender: { male: 0, female: 0 },
-                                age: {}, // { "11-13": 0, "14-16": 0, ... }
-                                fourPs: { yes: 0, no: 0 },
-                                bmi: { total: 0, count: 0, underweight: 0, normal: 0, overweight: 0, obese: 0 }
-                            };
+                            /* ================================================
+                             * SMART ANALYTICS PARSER - v3.0
+                             * Dispatches to type-specific parsing logic.
+                             * Each parser produces a stats object stored
+                             * with the report for analytics aggregation.
+                             * ================================================ */
+                            const findCol = (name) => headers.findIndex(h => h.includes(name.toLowerCase()));
+                            const getVal = (row, idx) => idx !== -1 ? String(row[idx] || '').trim() : '';
+                            const getNum = (row, idx) => idx !== -1 ? parseFloat(row[idx]) : NaN;
+                            const isYes = (v) => ['yes', 'y', 'true', '1'].includes(v.toLowerCase());
+                            const dataRows = jsonData.slice(1).filter(r => r && r.length > 0 && r.some(c => c !== null && c !== undefined && String(c).trim() !== ''));
 
-                            // Column Indices
-                            const idxGender = headers.indexOf('gender');
-                            const idxAge = headers.indexOf('age');
-                            const idx4Ps = headers.findIndex(h => h.includes('4ps'));
-                            const idxWeight = headers.findIndex(h => h.includes('weight'));
-                            const idxHeight = headers.findIndex(h => h.includes('height'));
+                            let stats = {};
 
-                            for (let i = 1; i < jsonData.length; i++) {
-                                const row = jsonData[i];
-
-                                // Gender
-                                if (idxGender !== -1) {
-                                    const g = String(row[idxGender] || '').toLowerCase();
-                                    if (g === 'male' || g === 'm') stats.gender.male++;
-                                    else if (g === 'female' || g === 'f') stats.gender.female++;
-                                }
-
-                                // Age
-                                if (idxAge !== -1) {
-                                    const age = parseInt(row[idxAge]);
-                                    if (!isNaN(age)) {
-                                        // Age Brackets
-                                        let bracket = "Other";
-                                        if (age >= 11 && age <= 13) bracket = "11-13";
-                                        else if (age >= 14 && age <= 16) bracket = "14-16";
-                                        else if (age >= 17) bracket = "17+";
-                                        else bracket = "<11";
-
-                                        stats.age[bracket] = (stats.age[bracket] || 0) + 1;
-                                    }
-                                }
-
-                                // 4Ps
-                                if (idx4Ps !== -1) {
-                                    const s = String(row[idx4Ps] || '').toLowerCase();
-                                    if (s === 'yes' || s === 'y' || s === 'true') stats.fourPs.yes++;
-                                    else stats.fourPs.no++;
-                                }
-
-                                // BMI
-                                if (idxWeight !== -1 && idxHeight !== -1) {
-                                    const w = parseFloat(row[idxWeight]); // kg
-                                    const h = parseFloat(row[idxHeight]); // meters
-                                    if (!isNaN(w) && !isNaN(h) && h > 0) {
-                                        const bmi = w / (h * h);
-                                        stats.bmi.total += bmi;
-                                        stats.bmi.count++;
-
-                                        if (bmi < 18.5) stats.bmi.underweight++;
-                                        else if (bmi < 24.9) stats.bmi.normal++;
-                                        else if (bmi < 29.9) stats.bmi.overweight++;
-                                        else stats.bmi.obese++;
-                                    }
-                                }
+                            // ---- LEARNER PROFILE ----
+                            if (typeId === 'learner_profile' || (typeDef.label || '').toLowerCase().includes('student general')) {
+                                stats = { gender: { male: 0, female: 0 }, age: {}, fourPs: { yes: 0, no: 0 }, bmi: { total: 0, count: 0, underweight: 0, normal: 0, overweight: 0, obese: 0 }, ips: { yes: 0, no: 0 }, ethnicity: {}, religion: {}, nutritionalStatus: {} };
+                                const iG = findCol('gender'), iA = findCol('age'), i4 = headers.findIndex(h => h.includes('4ps')), iW = findCol('weight'), iH = findCol('height'), iIP = headers.findIndex(h => h === 'ip' || h.includes('indigenous')), iEth = findCol('ethnicity'), iRel = findCol('religion'), iNS = findCol('nutritional');
+                                dataRows.forEach(row => {
+                                    const g = getVal(row, iG).toLowerCase(); if (g === 'male' || g === 'm') stats.gender.male++; else if (g === 'female' || g === 'f') stats.gender.female++;
+                                    const age = parseInt(getVal(row, iA)); if (!isNaN(age)) { let b = 'Other'; if (age >= 11 && age <= 13) b = '11-13'; else if (age >= 14 && age <= 16) b = '14-16'; else if (age >= 17) b = '17+'; else b = '<11'; stats.age[b] = (stats.age[b] || 0) + 1; }
+                                    if (i4 !== -1) { isYes(getVal(row, i4)) ? stats.fourPs.yes++ : stats.fourPs.no++; }
+                                    if (iIP !== -1) { isYes(getVal(row, iIP)) ? stats.ips.yes++ : stats.ips.no++; }
+                                    const w = getNum(row, iW), h2 = getNum(row, iH); if (!isNaN(w) && !isNaN(h2) && h2 > 0) { const bmi = w / (h2 * h2); stats.bmi.total += bmi; stats.bmi.count++; if (bmi < 18.5) stats.bmi.underweight++; else if (bmi < 24.9) stats.bmi.normal++; else if (bmi < 29.9) stats.bmi.overweight++; else stats.bmi.obese++; }
+                                    const eth = getVal(row, iEth); if (eth) stats.ethnicity[eth] = (stats.ethnicity[eth] || 0) + 1;
+                                    const rel = getVal(row, iRel); if (rel) stats.religion[rel] = (stats.religion[rel] || 0) + 1;
+                                    const ns = getVal(row, iNS); if (ns) stats.nutritionalStatus[ns] = (stats.nutritionalStatus[ns] || 0) + 1;
+                                });
+                            }
+                            // ---- ACADEMIC PERFORMANCE ----
+                            else if (typeId === 'academic_performance') {
+                                stats = { subjectAvg: {}, gradeLevel: {}, mpsAvg: { total: 0, count: 0 }, promotionStatus: { promoted: 0, retained: 0, other: 0 }, overallAvg: { total: 0, count: 0 }, passFail: { passed: 0, failed: 0 } };
+                                const iSubj = findCol('subject'), iGL = findCol('grade level'), iFR = findCol('final rating'), iMPS = findCol('mps'), iPS = findCol('promotion status'), iRem = findCol('remarks');
+                                dataRows.forEach(row => {
+                                    const subj = getVal(row, iSubj), gl = getVal(row, iGL), fr = getNum(row, iFR), mps = getNum(row, iMPS), ps = getVal(row, iPS).toLowerCase(), rem = getVal(row, iRem).toLowerCase();
+                                    if (subj) { if (!stats.subjectAvg[subj]) stats.subjectAvg[subj] = { total: 0, count: 0 }; if (!isNaN(fr)) { stats.subjectAvg[subj].total += fr; stats.subjectAvg[subj].count++; } }
+                                    if (gl) stats.gradeLevel[gl] = (stats.gradeLevel[gl] || 0) + 1;
+                                    if (!isNaN(mps)) { stats.mpsAvg.total += mps; stats.mpsAvg.count++; }
+                                    if (!isNaN(fr)) { stats.overallAvg.total += fr; stats.overallAvg.count++; }
+                                    if (ps.includes('promot')) stats.promotionStatus.promoted++; else if (ps.includes('retain')) stats.promotionStatus.retained++; else if (ps) stats.promotionStatus.other++;
+                                    if (rem.includes('pass')) stats.passFail.passed++; else if (rem.includes('fail')) stats.passFail.failed++;
+                                });
+                            }
+                            // ---- ATTENDANCE RECORDS ----
+                            else if (typeId === 'attendance_records') {
+                                stats = { totalDays: 0, totalPresent: 0, totalAbsent: 0, totalTardy: 0, avgAttendance: { total: 0, count: 0 }, monthlyData: {} };
+                                const iDays = findCol('total school days'), iPres = findCol('days present'), iAbs = findCol('days absent'), iTardy = findCol('times tardy'), iRate = findCol('attendance rate'), iMonth = findCol('month');
+                                dataRows.forEach(row => {
+                                    const days = getNum(row, iDays), pres = getNum(row, iPres), abs = getNum(row, iAbs), tardy = getNum(row, iTardy), rate = getNum(row, iRate), month = getVal(row, iMonth);
+                                    if (!isNaN(days)) stats.totalDays += days; if (!isNaN(pres)) stats.totalPresent += pres; if (!isNaN(abs)) stats.totalAbsent += abs; if (!isNaN(tardy)) stats.totalTardy += tardy;
+                                    if (!isNaN(rate)) { stats.avgAttendance.total += rate; stats.avgAttendance.count++; }
+                                    if (month) { if (!stats.monthlyData[month]) stats.monthlyData[month] = { present: 0, absent: 0, tardy: 0 }; if (!isNaN(pres)) stats.monthlyData[month].present += pres; if (!isNaN(abs)) stats.monthlyData[month].absent += abs; if (!isNaN(tardy)) stats.monthlyData[month].tardy += tardy; }
+                                });
+                            }
+                            // ---- PHIL-IRI RESULTS ----
+                            else if (typeId === 'philiri_results') {
+                                stats = { preLevel: { frustration: 0, instructional: 0, independent: 0 }, postLevel: { frustration: 0, instructional: 0, independent: 0 }, avgComprehension: { total: 0, count: 0 }, improvement: 0 };
+                                const iPL = findCol('pre-test level'), iPoL = findCol('post-test level'), iComp = findCol('comprehension');
+                                dataRows.forEach(row => {
+                                    const pl = getVal(row, iPL).toLowerCase(), pol = getVal(row, iPoL).toLowerCase(), comp = getNum(row, iComp);
+                                    if (pl.includes('frust')) stats.preLevel.frustration++; else if (pl.includes('instruct')) stats.preLevel.instructional++; else if (pl.includes('indep')) stats.preLevel.independent++;
+                                    if (pol.includes('frust')) stats.postLevel.frustration++; else if (pol.includes('instruct')) stats.postLevel.instructional++; else if (pol.includes('indep')) stats.postLevel.independent++;
+                                    if (!isNaN(comp)) { stats.avgComprehension.total += comp; stats.avgComprehension.count++; }
+                                });
+                                const preI = stats.preLevel.independent + stats.preLevel.instructional, postI = stats.postLevel.independent + stats.postLevel.instructional;
+                                const total = dataRows.length; stats.improvement = total > 0 ? Math.round(((postI - preI) / total) * 100) : 0;
+                            }
+                            // ---- CLASSROOM & RESOURCES ----
+                            else if (typeId === 'classroom_resources') {
+                                stats = { totalRooms: 0, totalCapacity: 0, totalEnrollment: 0, totalArmchairs: 0, totalTextbooks: 0, roomTypes: {}, materialStatus: {} };
+                                const iCap = findCol('capacity'), iEnr = findCol('enrollment'), iArm = findCol('armchairs'), iTxt = findCol('textbooks'), iRT = findCol('room type'), iLM = findCol('materials status');
+                                dataRows.forEach(row => {
+                                    stats.totalRooms++;
+                                    const cap = getNum(row, iCap), enr = getNum(row, iEnr), arm = getNum(row, iArm), txt = getNum(row, iTxt), rt = getVal(row, iRT), lm = getVal(row, iLM);
+                                    if (!isNaN(cap)) stats.totalCapacity += cap; if (!isNaN(enr)) stats.totalEnrollment += enr; if (!isNaN(arm)) stats.totalArmchairs += arm; if (!isNaN(txt)) stats.totalTextbooks += txt;
+                                    if (rt) stats.roomTypes[rt] = (stats.roomTypes[rt] || 0) + 1;
+                                    if (lm) stats.materialStatus[lm] = (stats.materialStatus[lm] || 0) + 1;
+                                });
+                            }
+                            // ---- BENEFITS & ASSISTANCE ----
+                            else if (typeId === 'benefits_assistance') {
+                                stats = { programTypes: {}, totalAmount: 0, statusCounts: {}, totalBeneficiaries: 0 };
+                                const iPT = findCol('program type'), iPN = findCol('program name'), iAmt = findCol('amount'), iSt = findCol('status');
+                                dataRows.forEach(row => {
+                                    stats.totalBeneficiaries++;
+                                    const pt = getVal(row, iPT), amt = getNum(row, iAmt), st = getVal(row, iSt);
+                                    if (pt) stats.programTypes[pt] = (stats.programTypes[pt] || 0) + 1;
+                                    if (!isNaN(amt)) stats.totalAmount += amt;
+                                    if (st) stats.statusCounts[st] = (stats.statusCounts[st] || 0) + 1;
+                                });
+                            }
+                            // ---- CO-CURRICULAR ACTIVITIES ----
+                            else if (typeId === 'cocurricular_activities') {
+                                stats = { activityTypes: {}, participationLevels: {}, awardCount: 0, totalParticipants: 0 };
+                                const iAT = findCol('activity type'), iLP = findCol('level of participation'), iAward = findCol('award');
+                                dataRows.forEach(row => {
+                                    stats.totalParticipants++;
+                                    const at = getVal(row, iAT), lp = getVal(row, iLP), award = getVal(row, iAward);
+                                    if (at) stats.activityTypes[at] = (stats.activityTypes[at] || 0) + 1;
+                                    if (lp) stats.participationLevels[lp] = (stats.participationLevels[lp] || 0) + 1;
+                                    if (award && award.toLowerCase() !== 'none' && award.toLowerCase() !== 'n/a') stats.awardCount++;
+                                });
+                            }
+                            // ---- LEARNER PROGRESS & ENGAGEMENT ----
+                            else if (typeId === 'learner_progress') {
+                                stats = { progressStatus: {}, reportCardIssued: { yes: 0, no: 0 }, ptcCompleted: 0, totalRecords: 0 };
+                                const iPS = findCol('progress status'), iRC = findCol('report card'), iPTC = findCol('ptc date');
+                                dataRows.forEach(row => {
+                                    stats.totalRecords++;
+                                    const ps = getVal(row, iPS), rc = getVal(row, iRC), ptc = getVal(row, iPTC);
+                                    if (ps) stats.progressStatus[ps] = (stats.progressStatus[ps] || 0) + 1;
+                                    if (isYes(rc)) stats.reportCardIssued.yes++; else stats.reportCardIssued.no++;
+                                    if (ptc) stats.ptcCompleted++;
+                                });
+                            }
+                            // ---- DRRM & INCIDENT MONITORING ----
+                            else if (typeId === 'drrm_incident') {
+                                stats = { incidentTypes: {}, severityCounts: {}, statusCounts: {}, totalIncidents: 0, totalStudentsInvolved: 0 };
+                                const iIT = findCol('incident type'), iSev = findCol('severity'), iISt = findCol('status'), iSI = findCol('students involved');
+                                dataRows.forEach(row => {
+                                    stats.totalIncidents++;
+                                    const it = getVal(row, iIT), sev = getVal(row, iSev), st = getVal(row, iISt), si = getNum(row, iSI);
+                                    if (it) stats.incidentTypes[it] = (stats.incidentTypes[it] || 0) + 1;
+                                    if (sev) stats.severityCounts[sev] = (stats.severityCounts[sev] || 0) + 1;
+                                    if (st) stats.statusCounts[st] = (stats.statusCounts[st] || 0) + 1;
+                                    if (!isNaN(si)) stats.totalStudentsInvolved += si;
+                                });
+                            }
+                            // ---- PROGRAM IMPLEMENTATION (PIR) ----
+                            else if (typeId === 'program_implementation') {
+                                stats = { statusCounts: {}, avgPercentage: { total: 0, count: 0 }, totalBudget: 0, totalExpenditure: 0, totalPrograms: 0 };
+                                const iPer = findCol('percentage'), iBud = findCol('budget'), iExp = findCol('expenditure'), iSt = findCol('status');
+                                dataRows.forEach(row => {
+                                    stats.totalPrograms++;
+                                    const per = getNum(row, iPer), bud = getNum(row, iBud), exp = getNum(row, iExp), st = getVal(row, iSt);
+                                    if (!isNaN(per)) { stats.avgPercentage.total += per; stats.avgPercentage.count++; }
+                                    if (!isNaN(bud)) stats.totalBudget += bud; if (!isNaN(exp)) stats.totalExpenditure += exp;
+                                    if (st) stats.statusCounts[st] = (stats.statusCounts[st] || 0) + 1;
+                                });
+                            }
+                            // ---- INSTRUCTIONAL SUPERVISION ----
+                            else if (typeId === 'instructional_supervision') {
+                                stats = { totalObservations: 0, focusAreas: {}, subjects: {}, teachers: {}, taTypes: {} };
+                                const iFA = findCol('focus area'), iSubj = findCol('subject'), iTch = findCol('teacher name'), iTA = findCol('ta provided');
+                                dataRows.forEach(row => {
+                                    stats.totalObservations++;
+                                    const fa = getVal(row, iFA), subj = getVal(row, iSubj), tch = getVal(row, iTch), ta = getVal(row, iTA);
+                                    if (fa) stats.focusAreas[fa] = (stats.focusAreas[fa] || 0) + 1;
+                                    if (subj) stats.subjects[subj] = (stats.subjects[subj] || 0) + 1;
+                                    if (tch) stats.teachers[tch] = (stats.teachers[tch] || 0) + 1;
+                                    if (ta) stats.taTypes[ta] = (stats.taTypes[ta] || 0) + 1;
+                                });
+                            }
+                            // ---- FALLBACK (user-created types) ----
+                            else {
+                                stats = { gender: { male: 0, female: 0 }, age: {}, fourPs: { yes: 0, no: 0 }, bmi: { total: 0, count: 0, underweight: 0, normal: 0, overweight: 0, obese: 0 } };
+                                const iG = findCol('gender'), iA = findCol('age'), i4 = headers.findIndex(h => h.includes('4ps')), iW = findCol('weight'), iH = findCol('height');
+                                dataRows.forEach(row => {
+                                    const g = getVal(row, iG).toLowerCase(); if (g === 'male' || g === 'm') stats.gender.male++; else if (g === 'female' || g === 'f') stats.gender.female++;
+                                    const age = parseInt(getVal(row, iA)); if (!isNaN(age)) { let b = 'Other'; if (age >= 11 && age <= 13) b = '11-13'; else if (age >= 14 && age <= 16) b = '14-16'; else if (age >= 17) b = '17+'; else b = '<11'; stats.age[b] = (stats.age[b] || 0) + 1; }
+                                    if (i4 !== -1) { isYes(getVal(row, i4)) ? stats.fourPs.yes++ : stats.fourPs.no++; }
+                                    const w = getNum(row, iW), h2 = getNum(row, iH); if (!isNaN(w) && !isNaN(h2) && h2 > 0) { const bmi = w / (h2 * h2); stats.bmi.total += bmi; stats.bmi.count++; if (bmi < 18.5) stats.bmi.underweight++; else if (bmi < 24.9) stats.bmi.normal++; else if (bmi < 29.9) stats.bmi.overweight++; else stats.bmi.obese++; }
+                                });
                             }
 
-                            // Store stats in hidden field or state to refer later
+                            // Store stats for submission
                             this.tempStats = stats;
 
                             // Original Total Calculation
@@ -3123,32 +3630,85 @@
                 if (!typeDef) { this.toast('Error: Report type definition not found.', 'error'); return; }
                 const headers = typeDef.headers && typeDef.headers.length > 0 ? typeDef.headers : ['Column1', 'Column2', 'Column3'];
 
-                // [UPDATED] Check for Student General Information
-                if (typeDef.id.includes('student') && typeDef.id.includes('general')) {
-                    // Generate Dynamic XLSX with Sample Data
-                    try {
-                        const sampleRow = headers.map(h => {
-                            const col = h.toUpperCase();
-                            if (col.includes('WEIGHT')) return 45;
-                            if (col.includes('HEIGHT')) return 1.5;
-                            if (col.includes('AGE')) return 16;
-                            if (col.includes('DATE') || col.includes('BIRTHDAY')) return '2008-01-01';
-                            if (col.includes('GENDER')) return 'Male';
-                            if (col.includes('4PS')) return 'Yes';
-                            if (col.includes('IP') || col.includes('INDIGENOUS')) return 'Yes';
-                            return `Sample ${h}`;
-                        });
-
-                        const ws = XLSX.utils.aoa_to_sheet([headers, sampleRow]);
-                        const wb = XLSX.utils.book_new();
-                        XLSX.utils.book_append_sheet(wb, ws, "Student Info");
-                        XLSX.writeFile(wb, `${typeDef.label}.xlsx`);
-                    } catch (e) {
-                        console.error(e);
-                        this.toast("Error generating Excel template. Falling back to CSV.", "error");
-                        this.downloadCSV(headers, typeDef.label);
+                /* ================================================
+                 * SMART TEMPLATE GENERATOR - v3.0
+                 * Generates XLSX templates with realistic sample
+                 * data for all 11 built-in report types.
+                 * ================================================ */
+                const sampleDataMap = {
+                    'learner_profile': h => {
+                        const m = { 'LRN': '100100100100', 'Last Name': 'Dela Cruz', 'First Name': 'Juan', 'Middle Name': 'Santos', 'Suffix': '', 'Gender': 'Male', 'Birthdate': '2008-05-15', 'Age': 16, 'Ethnicity': 'Filipino', 'Religion': 'Roman Catholic', 'Address': '123 Rizal St, Kidapawan City', 'Contact No': '09171234567', 'Parent/Guardian': 'Maria Dela Cruz', 'Guardian Contact': '09179876543', '4Ps': 'Yes', 'Weight (kg)': 55, 'Height (m)': 1.62, 'BMI': 20.96, 'Nutritional Status': 'Normal', 'IP': 'No' };
+                        return m[h] !== undefined ? m[h] : `Sample ${h}`;
+                    },
+                    'academic_performance': h => {
+                        const m = { 'LRN': '100100100100', 'Last Name': 'Dela Cruz', 'First Name': 'Juan', 'Grade Level': '10', 'Section': 'Diamond', 'Subject': 'Mathematics', 'Q1': 88, 'Q2': 90, 'Q3': 85, 'Q4': 92, 'Final Rating': 89, 'MPS': 88.75, 'Remarks': 'Passed', 'Promotion Status': 'Promoted' };
+                        return m[h] !== undefined ? m[h] : `Sample ${h}`;
+                    },
+                    'attendance_records': h => {
+                        const m = { 'LRN': '100100100100', 'Last Name': 'Dela Cruz', 'First Name': 'Juan', 'Grade Level': '10', 'Section': 'Diamond', 'Month': 'January', 'Total School Days': 22, 'Days Present': 20, 'Days Absent': 2, 'Times Tardy': 1, 'Attendance Rate (%)': 90.91 };
+                        return m[h] !== undefined ? m[h] : `Sample ${h}`;
+                    },
+                    'philiri_results': h => {
+                        const m = { 'LRN': '100100100100', 'Last Name': 'Dela Cruz', 'First Name': 'Juan', 'Grade Level': '7', 'Section': 'Ruby', 'Pre-Test Oral': 45, 'Pre-Test Silent': 50, 'Pre-Test Level': 'Frustration', 'Post-Test Oral': 78, 'Post-Test Silent': 82, 'Post-Test Level': 'Instructional', 'Comprehension Score': 75 };
+                        return m[h] !== undefined ? m[h] : `Sample ${h}`;
+                    },
+                    'classroom_resources': h => {
+                        const m = { 'Room No': '101', 'Room Type': 'Regular Classroom', 'Capacity': 50, 'Current Enrollment': 45, 'Student-Classroom Ratio': '45:1', 'Armchairs Available': 48, 'Student-Armchair Ratio': '0.94:1', 'Textbooks Available': 40, 'Textbook-Student Ratio': '0.89:1', 'Learning Materials Status': 'Adequate' };
+                        return m[h] !== undefined ? m[h] : `Sample ${h}`;
+                    },
+                    'benefits_assistance': h => {
+                        const m = { 'LRN': '100100100100', 'Last Name': 'Dela Cruz', 'First Name': 'Juan', 'Grade Level': '10', 'Section': 'Diamond', 'Program Type': '4Ps/CCT', 'Program Name': 'Pantawid Pamilyang Pilipino Program', 'Amount': 3000, 'Date Received': '2026-01-15', 'Status': 'Active', 'Remarks': 'Regular beneficiary' };
+                        return m[h] !== undefined ? m[h] : `Sample ${h}`;
+                    },
+                    'cocurricular_activities': h => {
+                        const m = { 'LRN': '100100100100', 'Last Name': 'Dela Cruz', 'First Name': 'Juan', 'Grade Level': '10', 'Section': 'Diamond', 'Activity Type': 'Sports', 'Activity Name': 'Basketball Intramurals', 'Level of Participation': 'School', 'Award/Recognition': 'Champion', 'Date': '2026-01-20' };
+                        return m[h] !== undefined ? m[h] : `Sample ${h}`;
+                    },
+                    'learner_progress': h => {
+                        const m = { 'LRN': '100100100100', 'Last Name': 'Dela Cruz', 'First Name': 'Juan', 'Grade Level': '10', 'Section': 'Diamond', 'Quarter': 'Q1', 'Progress Status': 'On Track', 'Report Card Issued': 'Yes', 'PTC Date': '2026-02-01', 'PTC Notes': 'Student shows improvement in Math', 'Parent Feedback': 'Satisfied with progress' };
+                        return m[h] !== undefined ? m[h] : `Sample ${h}`;
+                    },
+                    'drrm_incident': h => {
+                        const m = { 'Incident Date': '2026-01-10', 'Incident Type': 'Minor Injury', 'Location': 'School Grounds', 'Description': 'Student slipped on wet floor near canteen', 'Students Involved': 1, 'Severity': 'Low', 'Action Taken': 'First aid administered, area marked', 'Status': 'Resolved', 'Reported By': 'Juan Dela Cruz', 'Remarks': 'Floor mats installed' };
+                        return m[h] !== undefined ? m[h] : `Sample ${h}`;
+                    },
+                    'program_implementation': h => {
+                        const m = { 'Program Name': 'Gulayan sa Paaralan', 'Objectives': 'Promote nutrition awareness and food security', 'Key Activities': 'Planting, Harvesting, Distribution', 'Target': 200, 'Accomplishment': 180, 'Percentage': 90, 'Timeline': 'Aug 2025 - Mar 2026', 'Budget': 15000, 'Expenditure': 12500, 'Status': 'On Track', 'Remarks': 'Phase 2 ongoing' };
+                        return m[h] !== undefined ? m[h] : `Sample ${h}`;
+                    },
+                    'instructional_supervision': h => {
+                        const m = { 'Teacher Name': 'Maria Santos', 'Observer': 'Principal Ana Reyes', 'Grade Level': '10', 'Subject': 'Science', 'Date': '2026-01-15', 'Time': '8:00 AM', 'Focus Area': 'Active Learning Strategies', 'Learning Objectives': 'Explain photosynthesis process', 'Strategies': 'Cooperative Learning, Lab Activity', 'Findings': 'Effective use of group work and lab materials', 'Learner Engagement': 'High - 90% participation', 'Classroom Management': 'Well-organized, clear routines', 'TA Provided': 'Coaching on differentiated instruction', 'Recommendations': 'Use more formative assessments', 'Action Plan': 'Implement exit tickets weekly', 'Timeline': 'Feb 2026', 'Observer Signature': '(signed)', 'Teacher Signature': '(signed)' };
+                        return m[h] !== undefined ? m[h] : `Sample ${h}`;
                     }
-                } else {
+                };
+
+                try {
+                    const sampleFn = sampleDataMap[typeDef.id] || (h => {
+                        const col = h.toUpperCase();
+                        if (col.includes('WEIGHT')) return 45;
+                        if (col.includes('HEIGHT')) return 1.5;
+                        if (col.includes('AGE')) return 16;
+                        if (col.includes('DATE') || col.includes('BIRTHDAY')) return '2008-01-01';
+                        if (col.includes('GENDER')) return 'Male';
+                        if (col.includes('4PS')) return 'Yes';
+                        return `Sample ${h}`;
+                    });
+
+                    const sampleRow = headers.map(sampleFn);
+                    const sheetName = typeDef.label.substring(0, 31); // Excel sheet name max 31 chars
+                    const ws = XLSX.utils.aoa_to_sheet([headers, sampleRow]);
+
+                    // Auto-size columns
+                    ws['!cols'] = headers.map((h, i) => ({
+                        wch: Math.max(h.length + 2, String(sampleRow[i]).length + 2, 12)
+                    }));
+
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                    XLSX.writeFile(wb, `${typeDef.label}.xlsx`);
+                } catch (e) {
+                    console.error(e);
+                    this.toast("Error generating Excel template. Falling back to CSV.", "error");
                     this.downloadCSV(headers, typeDef.label);
                 }
 
@@ -3235,10 +3795,30 @@
 
             // --- PROFILE & SETTINGS ---
             renderProfile(container) {
+                /*
+                 * ========================================
+                 * PROFILE PAGE UI/UX ENHANCEMENT - v2.9.3
+                 * ========================================
+                 * CHANGES APPLIED:
+                 * 1. [UX] Added visible border outlines for all input container boxes
+                 * 2. [UX] Separated password update section with its own dedicated save button
+                 * 3. [UX] Optimized spacing: increased gap between labels and inputs (space-y-2 instead of space-y-1)
+                 * 4. [FEAT] Added privacy indicators for sensitive fields (PhilHealth ID, GSIS No., Home Address)
+                 *    - These fields are marked as private and hidden from others viewing the profile
+                 * 5. [FEAT] Educational Attainment converted to dropdown with standard options:
+                 *    - High School Graduate, College Level, Associate Degree, Bachelor's Degree,
+                 *      Master's Degree, Doctorate Degree, Vocational/Technical
+                 * 6. [FEAT] Grade Level converted to dropdown with standard SHS options (7-12)
+                 * 7. [UI] Enhanced input-field styling with more prominent borders
+                 * ========================================
+                 */
                 const u = this.user;
                 const avatarUrl = u.avatar || `https://ui-avatars.com/api/?name=${u.firstName}+${u.lastName}&background=random&size=128`;
                 const profileComplete = u.profileCompleted;
                 const warningHtml = !profileComplete ? `<div class="bg-red-50 border border-red-100 p-4 rounded-xl mb-6 flex gap-3 animate-fade-in"><i class="ph-fill ph-warning-circle text-red-500 text-xl"></i><div><h4 class="font-bold text-red-700 text-sm">Profile Incomplete</h4><p class="text-red-600 text-xs mt-1">Please complete all required fields below.</p></div></div>` : '';
+
+                // Privacy indicator helper
+                const privateFieldBadge = `<span class="ml-2 inline-flex items-center gap-1 text-[10px] font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full"><i class="ph-fill ph-lock-simple text-xs"></i>Private</span>`;
 
                 let manageToolsHtml = '';
                 if (this.canManageUsers()) {
@@ -3253,6 +3833,29 @@
                             </div>
                         </div>`;
                 }
+
+                // Educational Attainment options
+                const educationOptions = [
+                    { value: '', label: '-- Select Educational Attainment --' },
+                    { value: 'High School Graduate', label: 'High School Graduate' },
+                    { value: 'College Level', label: 'College Level' },
+                    { value: 'Associate Degree', label: 'Associate Degree' },
+                    { value: "Bachelor's Degree", label: "Bachelor's Degree" },
+                    { value: "Master's Degree", label: "Master's Degree" },
+                    { value: 'Doctorate Degree', label: 'Doctorate Degree' },
+                    { value: 'Vocational/Technical', label: 'Vocational/Technical' }
+                ];
+
+                // Grade Level options (7-12)
+                const gradeLevelOptions = [
+                    { value: '', label: '-- Select Grade Level --' },
+                    { value: '7', label: 'Grade 7' },
+                    { value: '8', label: 'Grade 8' },
+                    { value: '9', label: 'Grade 9' },
+                    { value: '10', label: 'Grade 10' },
+                    { value: '11', label: 'Grade 11' },
+                    { value: '12', label: 'Grade 12' }
+                ];
 
                 container.innerHTML = `
                     <div class="max-w-4xl mx-auto w-full animate-fade-in pt-10">
@@ -3270,76 +3873,104 @@
                                         <p class="text-xs text-gray-400 mt-1 font-mono">${u.id}</p>
                                     </div>
                                 </div>
-                                <button onclick="App.saveProfile()" class="bg-gray-900 text-white text-sm font-bold px-6 py-3 rounded-xl shadow-lg hover:bg-black active:scale-95 transition-all mb-2 md:mb-4">Save Changes</button>
+                                <button onclick="App.saveProfile()" class="bg-gray-900 text-white text-sm font-bold px-6 py-3 rounded-xl shadow-lg hover:bg-black active:scale-95 transition-all mb-2 md:mb-4 flex items-center gap-2"><i class="ph-bold ph-floppy-disk"></i> Save Profile</button>
                             </div>
                         </div>
                         <div class="px-5 md:px-0">${warningHtml}${manageToolsHtml}</div>
                         <div class="px-5 md:px-0 grid md:grid-cols-2 gap-6 pb-20" id="profile-form">
                             <div class="space-y-6">
-                                <div class="p-6 bg-white rounded-2xl border border-gray-100 shadow-sm">
-                                    <h3 class="text-xs font-bold text-gray-400 uppercase mb-4 tracking-wider">Personal Details</h3>
-                                    <div class="grid grid-cols-2 gap-4 mb-4">
-                                        <div class="space-y-1"><label class="text-xs font-bold text-gray-500">First Name</label><input type="text" name="firstName" value="${u.firstName}" class="input-field text-sm py-2" required></div>
-                                        <div class="space-y-1"><label class="text-xs font-bold text-gray-500">Last Name</label><input type="text" name="lastName" value="${u.lastName}" class="input-field text-sm py-2" required></div>
+                                <!-- Personal Details Card -->
+                                <div class="p-6 bg-white rounded-2xl border-2 border-gray-200 shadow-sm hover:border-brand-200 transition-colors">
+                                    <h3 class="text-xs font-bold text-gray-400 uppercase mb-5 tracking-wider flex items-center gap-2"><i class="ph-fill ph-user-circle text-brand-500"></i> Personal Details</h3>
+                                    <div class="grid grid-cols-2 gap-4 mb-5">
+                                        <div class="space-y-2"><label class="text-xs font-bold text-gray-600 block">First Name</label><input type="text" name="firstName" value="${u.firstName}" class="input-field text-sm py-2.5" required></div>
+                                        <div class="space-y-2"><label class="text-xs font-bold text-gray-600 block">Last Name</label><input type="text" name="lastName" value="${u.lastName}" class="input-field text-sm py-2.5" required></div>
                                     </div>
-                                    <div class="grid grid-cols-2 gap-4 mb-4">
-                                        <div class="space-y-1"><label class="text-xs font-bold text-gray-500">Middle Name</label><input type="text" name="middleName" value="${u.middleName || ''}" class="input-field text-sm py-2"></div>
-                                        <div class="space-y-1"><label class="text-xs font-bold text-gray-500">Age</label><input type="number" name="age" value="${u.age || ''}" class="input-field text-sm py-2" required></div>
+                                    <div class="grid grid-cols-2 gap-4 mb-5">
+                                        <div class="space-y-2"><label class="text-xs font-bold text-gray-600 block">Middle Name</label><input type="text" name="middleName" value="${u.middleName || ''}" class="input-field text-sm py-2.5"></div>
+                                        <div class="space-y-2"><label class="text-xs font-bold text-gray-600 block">Age</label><input type="number" name="age" value="${u.age || ''}" class="input-field text-sm py-2.5" required></div>
                                     </div>
-                                    <div class="space-y-4">
-                                        <div class="space-y-1"><label class="text-xs font-bold text-gray-500">Birthday</label><input type="date" name="birthday" value="${u.birthday ? u.birthday.split('T')[0] : ''}" class="input-field text-sm py-2" required></div>
-                                        <div class="space-y-1"><label class="text-xs font-bold text-gray-500">Ethnicity</label><input type="text" name="ethnicity" value="${u.ethnicity || ''}" class="input-field text-sm py-2" required></div>
-                                        <div class="space-y-1"><label class="text-xs font-bold text-gray-500">Educational Attainment</label><input type="text" name="education" value="${u.education || ''}" class="input-field text-sm py-2" required></div>
+                                    <div class="space-y-5">
+                                        <div class="space-y-2"><label class="text-xs font-bold text-gray-600 block">Birthday</label><input type="date" name="birthday" value="${u.birthday ? u.birthday.split('T')[0] : ''}" class="input-field text-sm py-2.5" required></div>
+                                        <div class="space-y-2"><label class="text-xs font-bold text-gray-600 block">Ethnicity</label><input type="text" name="ethnicity" value="${u.ethnicity || ''}" class="input-field text-sm py-2.5" required></div>
+                                        <div class="space-y-2">
+                                            <label class="text-xs font-bold text-gray-600 block">Educational Attainment</label>
+                                            <select name="education" class="input-field text-sm py-2.5" required>
+                                                ${educationOptions.map(opt => `<option value="${opt.value}" ${u.education === opt.value ? 'selected' : ''} ${opt.value === '' ? 'disabled' : ''}>${opt.label}</option>`).join('')}
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="p-6 bg-white rounded-2xl border border-gray-100 shadow-sm">
-                                    <h3 class="text-xs font-bold text-gray-400 uppercase mb-4 tracking-wider">Contact & Address</h3>
-                                    <div class="space-y-4">
-                                        <div class="space-y-1"><label class="text-xs font-bold text-gray-500">Personal Email</label><input type="email" name="personalEmail" value="${u.personalEmail || ''}" class="input-field text-sm py-2" required></div>
-                                        <div class="space-y-1"><label class="text-xs font-bold text-gray-500">Contact Number</label><input type="tel" name="contactNumber" value="${u.contactNumber || ''}" class="input-field text-sm py-2" required></div>
-                                        <div class="space-y-1"><label class="text-xs font-bold text-gray-500">Home Address</label><textarea name="homeAddress" class="input-field text-sm py-2 resize-none" rows="2" required>${u.homeAddress || ''}</textarea></div>
+                                <!-- Contact & Address Card -->
+                                <div class="p-6 bg-white rounded-2xl border-2 border-gray-200 shadow-sm hover:border-brand-200 transition-colors">
+                                    <h3 class="text-xs font-bold text-gray-400 uppercase mb-5 tracking-wider flex items-center gap-2"><i class="ph-fill ph-phone text-brand-500"></i> Contact & Address</h3>
+                                    <div class="space-y-5">
+                                        <div class="space-y-2"><label class="text-xs font-bold text-gray-600 block">Personal Email</label><input type="email" name="personalEmail" value="${u.personalEmail || ''}" class="input-field text-sm py-2.5" required></div>
+                                        <div class="space-y-2"><label class="text-xs font-bold text-gray-600 block">Contact Number</label><input type="tel" name="contactNumber" value="${u.contactNumber || ''}" class="input-field text-sm py-2.5" required></div>
+                                        <div class="space-y-2">
+                                            <label class="text-xs font-bold text-gray-600 flex items-center">Home Address ${privateFieldBadge}</label>
+                                            <textarea name="homeAddress" class="input-field text-sm py-2.5 resize-none" rows="2" required>${u.homeAddress || ''}</textarea>
+                                            <p class="text-[10px] text-gray-400 italic"><i class="ph ph-eye-slash"></i> Hidden from other users</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                             <div class="space-y-6">
-                                <div class="p-6 bg-white rounded-2xl border border-gray-100 shadow-sm">
-                                    <h3 class="text-xs font-bold text-gray-400 uppercase mb-4 tracking-wider">Academic & Govt IDs</h3>
-                                    <div class="space-y-4">
-                                        <div class="space-y-1"><label class="text-xs font-bold text-gray-500">Department</label><input type="text" name="department" value="${u.department}" class="input-field text-sm py-2" required></div>
-                                        <div class="space-y-1"><label class="text-xs font-bold text-gray-500">Subject Handled</label><input type="text" name="subject" value="${u.subject}" class="input-field text-sm py-2" required></div>
+                                <!-- Academic & Govt IDs Card -->
+                                <div class="p-6 bg-white rounded-2xl border-2 border-gray-200 shadow-sm hover:border-brand-200 transition-colors">
+                                    <h3 class="text-xs font-bold text-gray-400 uppercase mb-5 tracking-wider flex items-center gap-2"><i class="ph-fill ph-graduation-cap text-brand-500"></i> Academic & Govt IDs</h3>
+                                    <div class="space-y-5">
+                                        <div class="space-y-2"><label class="text-xs font-bold text-gray-600 block">Department</label><input type="text" name="department" value="${u.department}" class="input-field text-sm py-2.5" required></div>
+                                        <div class="space-y-2"><label class="text-xs font-bold text-gray-600 block">Subject Handled</label><input type="text" name="subject" value="${u.subject || ''}" class="input-field text-sm py-2.5" required></div>
                                         
                                         <!-- Faculty Designation -->
                                         ${u.role === 'Faculty' ? `
-                                            <div class="space-y-1">
-                                                <label class="text-xs font-bold text-gray-500">Designation</label>
-                                                <select name="designation" class="input-field text-sm py-2" onchange="document.getElementById('adv-sec-group').style.display = this.value === 'Class Adviser' ? 'block' : 'none'">
+                                            <div class="space-y-2">
+                                                <label class="text-xs font-bold text-gray-600 block">Designation</label>
+                                                <select name="designation" class="input-field text-sm py-2.5" onchange="document.getElementById('adv-sec-group').style.display = this.value === 'Class Adviser' ? 'block' : 'none'">
                                                     <option value="" disabled ${!u.designation ? 'selected' : ''}>-- Select Designation --</option>
                                                     <option value="Floating Teacher" ${u.designation === 'Floating Teacher' ? 'selected' : ''}>Floating Teacher</option>
                                                     <option value="Class Adviser" ${u.designation === 'Class Adviser' ? 'selected' : ''}>Class Adviser</option>
                                                 </select>
                                             </div>
-                                            <div id="adv-sec-group" class="space-y-1" style="display: ${u.designation === 'Class Adviser' ? 'block' : 'none'}">
-                                                <label class="text-xs font-bold text-gray-500">Advisory Section</label>
-                                                <input type="text" name="advisorySection" value="${u.advisorySection || ''}" placeholder="e.g. Grade 10 - Ruby" class="input-field text-sm py-2">
+                                            <div id="adv-sec-group" class="space-y-2" style="display: ${u.designation === 'Class Adviser' ? 'block' : 'none'}">
+                                                <label class="text-xs font-bold text-gray-600 block">Advisory Section</label>
+                                                <input type="text" name="advisorySection" value="${u.advisorySection || ''}" placeholder="e.g. Grade 10 - Ruby" class="input-field text-sm py-2.5">
                                             </div>
                                         ` : ''}
 
-                                        <div class="space-y-1"><label class="text-xs font-bold text-gray-500">Grade Level</label><input type="text" name="gradeLevel" value="${u.gradeLevel}" class="input-field text-sm py-2" required></div>
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                                             <div class="space-y-1"><label class="text-xs font-bold text-gray-500">PhilHealth ID</label><input type="text" name="philHealth" value="${u.philHealth || ''}" class="input-field text-sm py-2" required></div>
-                                             <div class="space-y-1"><label class="text-xs font-bold text-gray-500">GSIS No.</label><input type="text" name="gsis" value="${u.gsis || ''}" class="input-field text-sm py-2" required></div>
+                                        <div class="space-y-2">
+                                            <label class="text-xs font-bold text-gray-600 block">Grade Level Handled</label>
+                                            <select name="gradeLevel" class="input-field text-sm py-2.5" required>
+                                                ${gradeLevelOptions.map(opt => `<option value="${opt.value}" ${u.gradeLevel === opt.value || u.gradeLevel === 'Grade ' + opt.value ? 'selected' : ''} ${opt.value === '' ? 'disabled' : ''}>${opt.label}</option>`).join('')}
+                                            </select>
                                         </div>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-gray-100 mt-3">
+                                             <div class="space-y-2">
+                                                 <label class="text-xs font-bold text-gray-600 flex items-center">PhilHealth ID ${privateFieldBadge}</label>
+                                                 <input type="text" name="philHealth" value="${u.philHealth || ''}" class="input-field text-sm py-2.5" required>
+                                             </div>
+                                             <div class="space-y-2">
+                                                 <label class="text-xs font-bold text-gray-600 flex items-center">GSIS No. ${privateFieldBadge}</label>
+                                                 <input type="text" name="gsis" value="${u.gsis || ''}" class="input-field text-sm py-2.5" required>
+                                             </div>
+                                        </div>
+                                        <p class="text-[10px] text-gray-400 italic -mt-2"><i class="ph ph-eye-slash"></i> PhilHealth ID and GSIS No. are hidden from other users</p>
                                     </div>
                                 </div>
-                                <div class="p-6 bg-white rounded-2xl border border-gray-100 shadow-sm">
-                                    <h3 class="text-xs font-bold text-gray-400 uppercase mb-4 tracking-wider">Account Security</h3>
-                                    <div class="space-y-1"><label class="text-xs font-medium text-gray-500">DepEd Email Address</label><input type="email" name="email" value="${u.email}" class="input-field text-sm py-2 bg-gray-100 text-gray-500" readonly></div>
-                                    <div class="mt-6 pt-6 border-t border-gray-100">
-                                        <h4 class="text-xs font-bold text-gray-900 uppercase mb-3">Change Password</h4>
-                                        <div class="space-y-3">
-                                            <div class="space-y-1"><label class="text-xs font-medium text-gray-500">New Password</label><input type="password" name="newPassword" placeholder="Leave blank to keep current" class="input-field text-sm py-2"></div>
-                                            <div class="space-y-1"><label class="text-xs font-medium text-gray-500">Confirm Password</label><input type="password" name="confirmPassword" placeholder="Confirm new password" class="input-field text-sm py-2"></div>
+                                <!-- Account Security Card -->
+                                <div class="p-6 bg-white rounded-2xl border-2 border-gray-200 shadow-sm hover:border-brand-200 transition-colors">
+                                    <h3 class="text-xs font-bold text-gray-400 uppercase mb-5 tracking-wider flex items-center gap-2"><i class="ph-fill ph-shield-check text-brand-500"></i> Account Security</h3>
+                                    <div class="space-y-2 mb-6"><label class="text-xs font-bold text-gray-600 block">DepEd Email Address</label><input type="email" name="email" value="${u.email}" class="input-field text-sm py-2.5 bg-gray-100 text-gray-500 cursor-not-allowed" readonly></div>
+                                    <div class="pt-5 border-t-2 border-dashed border-gray-200" id="password-section">
+                                        <div class="flex justify-between items-center mb-4">
+                                            <h4 class="text-xs font-bold text-gray-900 uppercase flex items-center gap-2"><i class="ph-fill ph-key text-amber-500"></i> Change Password</h4>
                                         </div>
+                                        <div class="space-y-4">
+                                            <div class="space-y-2"><label class="text-xs font-bold text-gray-600 block">New Password</label><input type="password" id="newPasswordInput" name="newPassword" placeholder="Enter new password" class="input-field text-sm py-2.5"></div>
+                                            <div class="space-y-2"><label class="text-xs font-bold text-gray-600 block">Confirm Password</label><input type="password" id="confirmPasswordInput" name="confirmPassword" placeholder="Confirm new password" class="input-field text-sm py-2.5"></div>
+                                        </div>
+                                        <button onclick="App.savePassword()" class="mt-5 w-full bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold px-5 py-3 rounded-xl shadow-md active:scale-95 transition-all flex items-center justify-center gap-2"><i class="ph-bold ph-lock-key"></i> Update Password</button>
                                     </div>
                                 </div>
                             </div>
@@ -3439,27 +4070,31 @@
                 }
             },
             async saveProfile() {
+                /*
+                 * ========================================
+                 * SAVE PROFILE - v2.9.3 UPDATE
+                 * ========================================
+                 * CHANGE: Password handling removed from this function.
+                 * Password is now saved separately via savePassword() function.
+                 * This provides better UX with a dedicated password update button.
+                 * ========================================
+                 */
                 const inputs = document.querySelectorAll('#profile-form input, #profile-form textarea, #profile-form select');
                 let updated = { ...this.user };
 
                 let allValid = true;
                 inputs.forEach(input => {
+                    // Exclude password fields from validation in main save
+                    if (input.name === 'newPassword' || input.name === 'confirmPassword') return;
                     if (input.required && !input.value.trim()) { allValid = false; input.classList.add('border-red-500'); } else input.classList.remove('border-red-500');
                 });
                 if (!allValid) { this.toast('Please fill in all required fields.', 'error'); return; }
 
                 if (this.tempAvatar) { updated.avatar = this.tempAvatar; this.tempAvatar = null; }
                 inputs.forEach(input => {
+                    // Skip password and readonly fields
                     if (!input.readOnly && input.name !== 'newPassword' && input.name !== 'confirmPassword') updated[input.name] = input.value;
                 });
-
-                const newPass = document.querySelector('input[name="newPassword"]').value;
-                const confirmPass = document.querySelector('input[name="confirmPassword"]').value;
-                if (newPass) {
-                    if (newPass !== confirmPass) { this.toast('Passwords do not match', 'error'); return; }
-                    updated.password = newPass; // Fix: Trim logic handled by backend? No, backend expects raw. Frontend trimmed input previously.
-                    this.toast('Password updated!');
-                }
 
                 updated.profileCompleted = true;
                 this.user = updated;
@@ -3468,6 +4103,47 @@
                 await this.api('updateProfile', updated);
                 this.toast('Profile updated successfully');
                 this.router('profile');
+            },
+
+            async savePassword() {
+                /*
+                 * ========================================
+                 * SAVE PASSWORD - v2.9.3 NEW FUNCTION
+                 * ========================================
+                 * NEW: Dedicated function for password updates.
+                 * Separated from saveProfile for better UX.
+                 * ========================================
+                 */
+                const newPass = document.getElementById('newPasswordInput').value;
+                const confirmPass = document.getElementById('confirmPasswordInput').value;
+
+                // Validation
+                if (!newPass) {
+                    this.toast('Please enter a new password.', 'error');
+                    return;
+                }
+                if (newPass.length < 6) {
+                    this.toast('Password must be at least 6 characters.', 'error');
+                    return;
+                }
+                if (newPass !== confirmPass) {
+                    this.toast('Passwords do not match.', 'error');
+                    return;
+                }
+
+                // Update password
+                let updated = { ...this.user };
+                updated.password = newPass;
+                this.user = updated;
+                this.saveSession();
+
+                await this.api('updateProfile', updated);
+
+                // Clear password inputs after successful update
+                document.getElementById('newPasswordInput').value = '';
+                document.getElementById('confirmPasswordInput').value = '';
+
+                this.toast('Password updated successfully!');
             }
         };
 
