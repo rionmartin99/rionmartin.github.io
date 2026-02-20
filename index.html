@@ -1,7 +1,11 @@
 <!-- 
-    School Portal - v2.9.4 (High Visibility Edition)
+    School Portal - v2.9.5 (High Visibility Edition)
     
     CHANGELOG:
+    v2.9.5 (Feb 2026) - Report Template Enhancements:
+    - [FEAT] Reports & Analytics: The generated Excel template now includes 3 rows of realistic sample data to guide users.
+    - [FEAT] Reports & Analytics: Added a dedicated "Tutorial & Instructions" tab in the exported Excel template with guidelines on data entry, formats, and restrictions.
+    
     v2.9.4 (Feb 2026) - UI Polish:
     - [UX] Profile: Increased input border contrast (gray-400) and added background (gray-50) for maximum visibility
     
@@ -28,7 +32,7 @@
     <meta charset="UTF-8">
     <meta name="viewport"
         with="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>School Portal v2.9.2</title>
+    <title>School Portal v2.9.5</title>
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -3069,36 +3073,45 @@
             openCreateReportTypeModal(defaultCategory = 'General') {
                 // [UPDATED] Richer Icon Set (Analytics + General + DRRM)
                 const icons = [
-                    // Analytics / Stats
-                    'ph-chart-line-up', 'ph-chart-bar-horizontal', 'ph-chart-pie-slice', 'ph-trend-up', 'ph-strategy',
-                    'ph-target', 'ph-function', 'ph-chart-polar', 'ph-chart-scatter', 'ph-presentation-chart',
-                    // General / Academic
-                    'ph-book-open', 'ph-student', 'ph-chalkboard-teacher', 'ph-graduation-cap', 'ph-pencil-simple',
-                    'ph-clipboard-text', 'ph-calendar-check', 'ph-briefcase', 'ph-trophy', 'ph-medal',
-                    'ph-star', 'ph-buildings', 'ph-users-three', 'ph-globe', 'ph-files',
+                    'ph-chart-bar', 'ph-chart-line-up', 'ph-chart-pie', 'ph-trend-up', 'ph-strategy', 'ph-target', 'ph-file-text',
+                    'ph-crosshair', 'ph-presentation-chart', 'ph-chalkboard', 'ph-book-open-text', 'ph-student', 'ph-images', 'ph-graduation-cap',
+                    'ph-pencil-simple', 'ph-clipboard-text', 'ph-calendar-check', 'ph-briefcase', 'ph-trophy', 'ph-medal', 'ph-star',
+                    'ph-buildings', 'ph-users-three', 'ph-globe', 'ph-files',
                     // DRRM / Safety
                     'ph-warning', 'ph-siren', 'ph-fire', 'ph-drop', 'ph-wind', 'ph-first-aid'
                 ];
 
                 const html = `
                     <div class="flex justify-between items-center mb-6"><h3 class="text-lg font-bold text-gray-900">Define New Report Type</h3><button onclick="App.closeModal()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200"><i class="ph ph-x"></i></button></div>
+                    
+                    <!-- INTERACTIVE HELPER BOX -->
+                    <div id="create-report-helper" class="hidden mb-6 bg-blue-50 border border-blue-200 p-4 rounded-xl shadow-inner transition-all duration-300 transform origin-top">
+                        <div class="flex gap-3">
+                            <i class="ph-fill ph-info text-blue-500 text-xl mt-0.5"></i>
+                            <div>
+                                <h4 id="helper-title" class="text-sm font-bold text-blue-900 mb-1">Guide</h4>
+                                <p id="helper-desc" class="text-xs text-blue-800 leading-relaxed"></p>
+                            </div>
+                        </div>
+                    </div>
+
                     <form onsubmit="App.handleCreateReportType(event)" class="space-y-4">
                         <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Report Category</label>
-                            <select name="category" class="input-field">
+                            <select name="category" class="input-field" onfocus="App.showCreateHelper('Report Category', 'Groups reports on the dashboard. Use &quot;General&quot; for academics, faculty, or students. Use &quot;DRRM&quot; for safety/incidents.')" onblur="App.hideCreateHelper()">
                                 <option value="General" ${defaultCategory === 'General' ? 'selected' : ''}>General Reporting</option>
                                 <option value="DRRM" ${defaultCategory === 'DRRM' ? 'selected' : ''}>DRRM Incident</option>
                             </select>
                         </div>
-                        <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Report Title</label><input type="text" name="label" placeholder="e.g. Quarterly Assessment" class="input-field" required></div>
+                        <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Report Title</label><input type="text" name="label" placeholder="e.g. Quarterly Assessment" class="input-field" required onfocus="App.showCreateHelper('Report Title', 'The main name of the report. This will also be the exact name users MUST use when naming their Excel file uploads (e.g. &quot;Quarterly Assessment.xlsx&quot;).')" onblur="App.hideCreateHelper()"></div>
                         <div class="grid grid-cols-2 gap-4">
-                            <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Key Metric Label</label><input type="text" name="metricLabel" placeholder="e.g. Score" class="input-field" required></div>
-                            <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Unit</label><input type="text" name="unit" placeholder="e.g. Average" class="input-field" required></div>
+                            <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Key Metric Label</label><input type="text" name="metricLabel" placeholder="e.g. Score" class="input-field" required onfocus="App.showCreateHelper('Key Metric Label', 'The primary number this report tracks. Example: &quot;Score&quot;, &quot;Budget&quot;, &quot;Attendees&quot;, or &quot;Total Enrollees&quot;.')" onblur="App.hideCreateHelper()"></div>
+                            <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Unit</label><input type="text" name="unit" placeholder="e.g. Average" class="input-field" required onfocus="App.showCreateHelper('Unit', 'The mathematical description of the metric. Example: &quot;Average&quot;, &quot;Pesos&quot;, &quot;Count&quot;, or &quot;Percentage&quot;.')" onblur="App.hideCreateHelper()"></div>
                         </div>
-                        <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">CSV Headers (Auto-Total included)</label><input type="text" name="headers" placeholder="Name, Date, Remarks" class="input-field" required><p class="text-[10px] text-gray-400 mt-1">'Total' column is automatically appended by system.</p></div>
-                        <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Color Theme</label><select name="color" class="input-field"><option value="blue">Blue</option><option value="green">Green</option><option value="orange">Orange</option><option value="purple">Purple</option><option value="red">Red</option></select></div>
+                        <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">CSV Headers (Auto-Total included)</label><input type="text" name="headers" placeholder="Name, Date, Remarks" class="input-field" required onfocus="App.showCreateHelper('CSV Headers', '<b>CRITICAL:</b> These define the columns in the Excel template. Separate them by commas. Example: &quot;Full Name, Grade Level, Test Score, Remarks&quot;. The system will automatically add a &quot;Total&quot; column at the end.')" onblur="App.hideCreateHelper()"><p class="text-[10px] text-gray-400 mt-1">'Total' column is automatically appended by system.</p></div>
+                        <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Color Theme</label><select name="color" class="input-field" onchange="App.showCreateHelper('Color Theme', 'Choose a color that fits the nature of the report. (e.g. Red for Incidents, Green for Financials).')"><option value="blue">Blue</option><option value="green">Green</option><option value="orange">Orange</option><option value="purple">Purple</option><option value="red">Red</option></select></div>
                         
                         <!-- Target Audience -->
-                        <div>
+                        <div onmouseenter="App.showCreateHelper('Target Audience (Goals)', 'Checking these boxes will make this report appear in the &quot;Required Goals&quot; sidebar for the selected user roles, prompting them to submit it.')" onmouseleave="App.hideCreateHelper()">
                             <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Target Audience (Goals)</label>
                             <div class="grid grid-cols-2 gap-2 text-sm bg-gray-50 p-3 rounded-xl border border-gray-200">
                                 <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" name="targetAudience" value="Faculty" class="rounded text-brand-600 focus:ring-brand-500"> <span>All Faculty</span></label>
@@ -3111,11 +3124,35 @@
                             <p class="text-[10px] text-gray-400 mt-1">Users with these roles will see this report as a 'Goal' to complete.</p>
                         </div>
 
-                        <div><label class="block text-xs font-bold text-gray-500 uppercase mb-2">Visual Icon</label><div class="grid grid-cols-7 gap-2 h-32 overflow-y-auto custom-scroll p-1 border rounded-lg">${icons.map((ic, i) => `<label class="cursor-pointer"><input type="radio" name="icon" value="${ic}" class="peer sr-only" ${i === 0 ? 'checked' : ''}><div class="w-10 h-10 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center peer-checked:bg-brand-600 peer-checked:text-white peer-checked:border-brand-600 text-gray-500 hover:bg-gray-100 transition-all"><i class="ph-fill ${ic} text-xl"></i></div></label>`).join('')}</div></div>
+                        <div onmouseenter="App.showCreateHelper('Visual Icon', 'Select an icon that visually represents the data nature. This appears on the Dashboard report card.')" onmouseleave="App.hideCreateHelper()">
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Visual Icon</label>
+                            <div class="grid grid-cols-7 gap-2 h-32 overflow-y-auto custom-scroll p-1 border rounded-lg">${icons.map((ic, i) => `<label class="cursor-pointer"><input type="radio" name="icon" value="${ic}" class="peer sr-only" ${i === 0 ? 'checked' : ''}><div class="w-10 h-10 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center peer-checked:bg-brand-600 peer-checked:text-white peer-checked:border-brand-600 text-gray-500 hover:bg-gray-100 transition-all"><i class="ph-fill ${ic} text-xl"></i></div></label>`).join('')}</div>
+                        </div>
                         <button type="submit" class="w-full bg-brand-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-brand-700">Create Definition</button>
                     </form>
                 `;
                 this.openModal(html);
+            },
+
+            showCreateHelper(title, description) {
+                const helperBox = document.getElementById('create-report-helper');
+                const titleEl = document.getElementById('helper-title');
+                const descEl = document.getElementById('helper-desc');
+
+                if (helperBox && titleEl && descEl) {
+                    titleEl.innerText = title;
+                    descEl.innerHTML = description;
+                    helperBox.classList.remove('hidden', 'scale-y-0', 'opacity-0');
+                    helperBox.classList.add('scale-y-100', 'opacity-100');
+                }
+            },
+
+            hideCreateHelper() {
+                const helperBox = document.getElementById('create-report-helper');
+                if (helperBox) {
+                    helperBox.classList.add('hidden', 'scale-y-0', 'opacity-0');
+                    helperBox.classList.remove('scale-y-100', 'opacity-100');
+                }
             },
 
             renderUserGuide() {
@@ -3125,64 +3162,94 @@
 
                 const html = `
                     <div class="flex justify-between items-center mb-6"><h3 class="text-lg font-bold text-gray-900">System User Guide</h3><button onclick="App.closeModal()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200"><i class="ph ph-x"></i></button></div>
-                    
-                    <div class="max-h-[70vh] overflow-y-auto custom-scroll space-y-8 pr-2">
-                        
-                        <!-- Interactive Tooltips Toggle -->
-                        <div class="bg-gray-900 text-white p-4 rounded-xl flex items-center justify-between shadow-lg">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-brand-400"><i class="ph-fill ph-cursor-click text-xl"></i></div>
-                                <div><h4 class="font-bold text-sm">Interactive Helper</h4><p class="text-xs text-gray-400">Show info boxes when hovering over features.</p></div>
+
+                        <div class="max-h-[70vh] overflow-y-auto custom-scroll space-y-8 pr-2">
+
+                            <!-- Interactive Tooltips Toggle -->
+                            <div class="bg-gray-900 text-white p-4 rounded-xl flex items-center justify-between shadow-lg">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-brand-400"><i class="ph-fill ph-cursor-click text-xl"></i></div>
+                                    <div><h4 class="font-bold text-sm">Interactive Helper</h4><p class="text-xs text-gray-400">Show info boxes when hovering over features.</p></div>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="tooltip-toggle" class="sr-only peer" ${tooltipsEnabled ? 'checked' : ''} onchange="App.toggleTooltips(this)">
+                                        <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-500"></div>
+                                </label>
                             </div>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" id="tooltip-toggle" class="sr-only peer" ${tooltipsEnabled ? 'checked' : ''} onchange="App.toggleTooltips(this)">
-                                <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-500"></div>
-                            </label>
+
+                            <!-- 1. Reports & Analytics (Priority) -->
+                            <section>
+                                <h4 class="text-lg font-bold text-brand-600 border-b border-brand-100 pb-2 mb-4 flex items-center gap-2"><i class="ph-fill ph-chart-bar"></i> Reports & Analytics</h4>
+                                <div class="space-y-6 text-sm text-gray-600">
+                                    <p class="leading-relaxed">The Reports & Analytics module is the core data engine of the School Portal. It allows you to submit structured data (via Excel/CSV) and instantly visualize it on dynamic dashboards. We built this to be as seamless as possible—just download a template, fill it in, upload, and the system does the parsing and math for you!</p>
+
+                                    <div class="bg-blue-50 border border-blue-100 rounded-xl p-5 shadow-sm">
+                                        <h5 class="text-blue-900 font-bold mb-3 flex items-center gap-2"><i class="ph-fill ph-plus-circle text-blue-500"></i> Defining a New Report Type (Admins Only)</h5>
+                                        <p class="mb-4 text-blue-800 leading-relaxed">If the built-in report types are not enough, Administrators can build custom ones. This tells the system how to read future uploads and display them on the dashboard. Follow this comprehensive guide to ensure your data is processed perfectly:</p>
+
+                                        <div class="space-y-4">
+                                            <div class="bg-white p-4 rounded-lg border border-blue-100">
+                                                <h6 class="font-bold text-blue-900 mb-1"><span class="bg-blue-200 text-blue-800 px-2 py-0.5 rounded text-xs mr-2">1</span> Report Category</h6>
+                                                <p class="text-sm text-gray-700">Groups your report on the dashboard. Use <b>"General"</b> for academics, faculty, or students. Use <b>"DRRM"</b> for safety, weather, or incident reports.</p>
+                                            </div>
+
+                                            <div class="bg-white p-4 rounded-lg border border-blue-100">
+                                                <h6 class="font-bold text-blue-900 mb-1"><span class="bg-blue-200 text-blue-800 px-2 py-0.5 rounded text-xs mr-2">2</span> Report Title</h6>
+                                                <p class="text-sm text-gray-700 mb-2">The main name of the report. <b>Crucially, this exact title must be included in the filename when users upload their data.</b></p>
+                                                <p class="text-xs text-gray-500 bg-gray-50 p-2 rounded"><i>Example:</i> "Quarterly Math Assessment". Users must upload files named like "Quarterly Math Assessment_Q1.xlsx".</p>
+                                            </div>
+
+                                            <div class="bg-white p-4 rounded-lg border border-blue-100">
+                                                <h6 class="font-bold text-blue-900 mb-1"><span class="bg-blue-200 text-blue-800 px-2 py-0.5 rounded text-xs mr-2">3</span> Key Metric & Unit</h6>
+                                                <p class="text-sm text-gray-700 mb-2">What data point are you tracking as the primary number on the summary card?</p>
+                                                <p class="text-xs text-gray-500 bg-gray-50 p-2 rounded"><i>Example Metric:</i> "Attendees", "Total Budget", or "Average Score". <br /><i>Example Unit:</i> "Count", "Pesos", or "Percent".</p>
+                                            </div>
+
+                                            <div class="bg-white p-4 rounded-lg border border-blue-200 border-l-4 border-l-brand-500 shadow-sm">
+                                                <h6 class="font-bold text-brand-900 mb-1"><span class="bg-brand-200 text-brand-800 px-2 py-0.5 rounded text-xs mr-2">4</span> CSV Headers (CRITICAL)</h6>
+                                                <p class="text-sm text-gray-700 mb-2">This is the most important step. You are defining the column headers for the Excel template that users will download and fill out. <b>You must separate each header with a comma.</b></p>
+                                                <ul class="list-disc ml-5 text-sm text-gray-600 mb-2 space-y-1">
+                                                    <li>Keep names simple and clear.</li>
+                                                    <li>Do NOT add a "Total" column. The system will automatically add a "Total" column at the very end of your template to calculate the Key Metric.</li>
+                                                </ul>
+                                                <p class="text-xs text-brand-600 bg-brand-50 p-2 rounded font-mono"><i>Correct Example:</i> Student Name, Grade Level, Test Score, Remarks, Date Taken</p>
+                                            </div>
+
+                                            <div class="bg-white p-4 rounded-lg border border-blue-100">
+                                                <h6 class="font-bold text-blue-900 mb-1"><span class="bg-blue-200 text-blue-800 px-2 py-0.5 rounded text-xs mr-2">5</span> Target Audience (Goals)</h6>
+                                                <p class="text-sm text-gray-700 mb-2">Select which user roles are <i>required</i> to submit this report. Checking a box (e.g., "Class Advisers") will make this report appear in the "Required Goals & Tasks" sidebar for all Class Advisers, tracking its completion.</p>
+                                            </div>
+
+                                            <div class="bg-white p-4 rounded-lg border border-blue-100">
+                                                <h6 class="font-bold text-blue-900 mb-1"><span class="bg-blue-200 text-blue-800 px-2 py-0.5 rounded text-xs mr-2">6</span> Visuals (Color & Icon)</h6>
+                                                <p class="text-sm text-gray-700">Choose a color and icon that represents the data. This makes the dashboard scannable. (e.g. Red Fire icon for Safety incidents, Green Money icon for Budget reports).</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+                                        <h5 class="font-bold text-gray-900 mb-3 flex items-center gap-2"><i class="ph-fill ph-upload-simple text-gray-500"></i> Submitting a Report Workflow</h5>
+                                        <p class="mb-3">Anyone with teaching or administrative access can submit reports to the defined report types.</p>
+                                        <ul class="space-y-3">
+                                            <li class="leading-relaxed"><span class="bg-gray-100 px-2 py-0.5 rounded text-xs font-bold text-gray-600 mr-2 align-middle inline-block">Step 1</span> Select <strong>Submit Report</strong> from the Reports tab. Choose the specific Report Type from the dropdown.</li>
+                                            <li class="leading-relaxed"><span class="bg-gray-100 px-2 py-0.5 rounded text-xs font-bold text-gray-600 mr-2 align-middle inline-block">Step 2</span> If you haven't prepared your file yet, click <strong>Download Template</strong>. The system will generate an exact '.xlsx' file tailored perfectly to the headers of that specific report. <span class="text-red-500 font-medium">Do not rename or rearrange the template's columns!</span></li>
+                                            <li class="leading-relaxed"><span class="bg-gray-100 px-2 py-0.5 rounded text-xs font-bold text-gray-600 mr-2 align-middle inline-block">Step 3</span> Fill your data in the template using MS Excel or Google Sheets. Save as '.xlsx' or '.csv'.</li>
+                                            <li class="leading-relaxed"><span class="bg-gray-100 px-2 py-0.5 rounded text-xs font-bold text-gray-600 mr-2 align-middle inline-block">Step 4</span> Click <strong>Select Excel/CSV File</strong> and choose your filled template.</li>
+                                            <li class="leading-relaxed"><span class="bg-gray-100 px-2 py-0.5 rounded text-xs font-bold text-gray-600 mr-2 align-middle inline-block">Step 5</span> <strong>Auto-Math Analysis:</strong> As soon as you select the file, the system's smart parser will read the file and automatically calculate your total metric value (like counting total learners, or summing up budgets).</li>
+                                            <li class="leading-relaxed"><span class="bg-gray-100 px-2 py-0.5 rounded text-xs font-bold text-gray-600 mr-2 align-middle inline-block">Step 6</span> Click <strong>Submit</strong>. Your data is uploaded, and the aggregate dashboard will instantly update!</li>
+                                        </ul>
+                                    </div>
+
+                                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-5 shadow-sm">
+                                        <h5 class="font-bold text-gray-900 mb-2 flex items-center gap-2"><i class="ph-fill ph-magnifying-glass text-gray-500"></i> Finding & Analyzing Data</h5>
+                                        <ul class="list-disc list-inside space-y-2 ml-1">
+                                            <li><strong>Global Search:</strong> The search bar at the top of the Reports page filters both the categorized cards and the recent submissions list. Try typing dates, submitter names, or report names.</li>
+                                            <li><strong>Aggregate Dashboards:</strong> Clicking any big colored card on the Reports view opens a comprehensive Analytics pop-up detailing all merged data submitted under that type across the whole school.</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </section>
                         </div>
-
-                        <!-- 1. Reports & Analytics (Priority) -->
-                        <section>
-                            <h4 class="text-lg font-bold text-brand-600 border-b border-brand-100 pb-2 mb-4 flex items-center gap-2"><i class="ph-fill ph-chart-bar"></i> Reports & Analytics</h4>
-                            <div class="space-y-6 text-sm text-gray-600">
-                                <p class="leading-relaxed">The Reports & Analytics module is the core data engine of the School Portal. It allows you to submit structured data (via Excel/CSV) and instantly visualize it on dynamic dashboards. We built this to be as seamless as possible—just download a template, fill it in, upload, and the system does the parsing and math for you!</p>
-                                
-                                <div class="bg-blue-50 border border-blue-100 rounded-xl p-5 shadow-sm">
-                                    <h5 class="text-blue-900 font-bold mb-3 flex items-center gap-2"><i class="ph-fill ph-plus-circle text-blue-500"></i> Defining a New Report Type (Admins Only)</h5>
-                                    <p class="mb-3 text-blue-800">If the 11 built-in report types are not enough, Administrators can define custom report types. This tells the system how to read future uploads.</p>
-                                    <ol class="list-decimal list-inside space-y-2 ml-1 text-blue-900">
-                                        <li>Go to the <strong>Reports & Analytics</strong> tab on the sidebar.</li>
-                                        <li>Click the white <strong>Add Type</strong> button near the top right of the dashboard.</li>
-                                        <li><strong>Title & Unit:</strong> Enter a recognizable name (e.g., "Monthly PTA Meeting") and the metric unit you are tracking (e.g., "Attendees").</li>
-                                        <li><strong>Category:</strong> Assign it to a category (like <i>Monitoring</i> or <i>Administrative</i>) to group it beautifully on the dashboard.</li>
-                                        <li><strong>Excel Headers:</strong> Decide what data headers your Excel template will have (e.g., "Name, Role, Time In"). Separate them by commas. The system will auto-add a "Total" column.</li>
-                                        <li><strong>Styling:</strong> Pick a color scheme and a matching icon.</li>
-                                        <li>Click <strong>Create Definition</strong>. The new report type will instantly appear as an aggregate card on the dashboard!</li>
-                                    </ol>
-                                </div>
-
-                                <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-                                    <h5 class="font-bold text-gray-900 mb-3 flex items-center gap-2"><i class="ph-fill ph-upload-simple text-gray-500"></i> Submitting a Report Workflow</h5>
-                                    <p class="mb-3">Anyone with teaching or administrative access can submit reports to the defined report types.</p>
-                                    <ul class="space-y-3">
-                                        <li class="leading-relaxed"><span class="bg-gray-100 px-2 py-0.5 rounded text-xs font-bold text-gray-600 mr-2 align-middle inline-block">Step 1</span> Select <strong>Submit Report</strong> from the Reports tab. Choose the specific Report Type from the dropdown.</li>
-                                        <li class="leading-relaxed"><span class="bg-gray-100 px-2 py-0.5 rounded text-xs font-bold text-gray-600 mr-2 align-middle inline-block">Step 2</span> If you haven't prepared your file yet, click <strong>Download Template</strong>. The system will generate an exact '.xlsx' file tailored perfectly to the headers of that specific report. <span class="text-red-500 font-medium">Do not rename or rearrange the template's columns!</span></li>
-                                        <li class="leading-relaxed"><span class="bg-gray-100 px-2 py-0.5 rounded text-xs font-bold text-gray-600 mr-2 align-middle inline-block">Step 3</span> Fill your data in the template using MS Excel or Google Sheets. Save as '.xlsx' or '.csv'.</li>
-                                        <li class="leading-relaxed"><span class="bg-gray-100 px-2 py-0.5 rounded text-xs font-bold text-gray-600 mr-2 align-middle inline-block">Step 4</span> Click <strong>Select Excel/CSV File</strong> and choose your filled template.</li>
-                                        <li class="leading-relaxed"><span class="bg-gray-100 px-2 py-0.5 rounded text-xs font-bold text-gray-600 mr-2 align-middle inline-block">Step 5</span> <strong>Auto-Math Analysis:</strong> As soon as you select the file, the system's smart parser will read the file and automatically calculate your total metric value (like counting total learners, or summing up budgets).</li>
-                                        <li class="leading-relaxed"><span class="bg-gray-100 px-2 py-0.5 rounded text-xs font-bold text-gray-600 mr-2 align-middle inline-block">Step 6</span> Click <strong>Submit</strong>. Your data is uploaded, and the aggregate dashboard will instantly update!</li>
-                                    </ul>
-                                </div>
-
-                                <div class="bg-gray-50 border border-gray-200 rounded-xl p-5 shadow-sm">
-                                    <h5 class="font-bold text-gray-900 mb-2 flex items-center gap-2"><i class="ph-fill ph-magnifying-glass text-gray-500"></i> Finding & Analyzing Data</h5>
-                                    <ul class="list-disc list-inside space-y-2 ml-1">
-                                        <li><strong>Global Search:</strong> The search bar at the top of the Reports page filters both the categorized cards and the recent submissions list. Try typing dates, submitter names, or report names.</li>
-                                        <li><strong>Aggregate Dashboards:</strong> Clicking any big colored card on the Reports view opens a comprehensive Analytics pop-up detailing all merged data submitted under that type across the whole school.</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </section>
-                            </div>
                         </section>
 
                         <!-- 2. General System -->
@@ -3220,7 +3287,7 @@
                             <p class="text-xs text-gray-400">School Portal &bull; <a href="#" class="text-brand-600 hover:underline">Contact Support</a></p>
                         </div>
                     </div>
-                `;
+            `;
                 this.openModal(html);
             },
 
@@ -3326,39 +3393,39 @@
             },
 
             openSubmitModal() {
-                const options = this.reportTypes.map(t => `<option value="${t.id}">${t.label}</option>`).join('');
+                const options = this.reportTypes.map(t => `< option value = "${t.id}" > ${t.label}</option > `).join('');
                 const firstType = this.reportTypes.length ? this.reportTypes[0] : null;
                 const firstMetric = firstType ? firstType.metricLabel : 'Value';
                 const firstUnit = firstType ? firstType.unit : '';
-                const firstFormat = firstType ? `${firstType.label} - [Details].pdf` : 'Report_Name.pdf';
+                const firstFormat = firstType ? `${firstType.label} -[Details].pdf` : 'Report_Name.pdf';
 
                 const html = `
-                    <div class="flex justify-between items-center mb-6"><h3 class="text-lg font-bold text-gray-900">Submit Report</h3><button onclick="App.closeModal()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200"><i class="ph ph-x"></i></button></div>
-                    <form onsubmit="App.handleSubmitReport(event)" class="space-y-4">
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Report Type</label>
-                            <select id="report-type-select" name="typeId" class="input-field" onchange="App.updateSubmitModalUI(this.value)">${options}</select>
-                        </div>
-                        
-                        <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center bg-gray-50 hover:bg-white hover:border-brand-400 transition-colors group cursor-pointer relative">
-                            <input type="file" name="file" id="report-file-upload" class="absolute inset-0 opacity-0 cursor-pointer" required onchange="App.handleReportFileSelect(this)">
+            <div class="flex justify-between items-center mb-6"><h3 class="text-lg font-bold text-gray-900">Submit Report</h3><button onclick="App.closeModal()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200"><i class="ph ph-x"></i></button></div>
+                <form onsubmit="App.handleSubmitReport(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Report Type</label>
+                        <select id="report-type-select" name="typeId" class="input-field" onchange="App.updateSubmitModalUI(this.value)">${options}</select>
+                    </div>
+
+                    <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center bg-gray-50 hover:bg-white hover:border-brand-400 transition-colors group cursor-pointer relative">
+                        <input type="file" name="file" id="report-file-upload" class="absolute inset-0 opacity-0 cursor-pointer" required onchange="App.handleReportFileSelect(this)">
                             <p class="text-sm font-medium text-gray-600 pointer-events-none" id="file-upload-text">Click to upload supporting file (Excel/CSV)</p>
                             <p class="text-[10px] text-brand-600 font-bold mt-2" id="file-format-hint">Required Name: ${firstFormat}</p>
-                        </div>
+                    </div>
 
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1" id="metric-label-display">${firstMetric} (${firstUnit})</label>
-                            <div class="relative">
-                                <input type="number" id="metric-value-input" name="metricValue" placeholder="Upload file to calculate..." class="input-field bg-gray-100 text-gray-500 cursor-not-allowed" readonly required>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1" id="metric-label-display">${firstMetric} (${firstUnit})</label>
+                        <div class="relative">
+                            <input type="number" id="metric-value-input" name="metricValue" placeholder="Upload file to calculate..." class="input-field bg-gray-100 text-gray-500 cursor-not-allowed" readonly required>
                                 <div class="absolute right-4 top-3 text-gray-400"><i class="ph-fill ph-calculator"></i></div>
-                            </div>
-                            <p class="text-[10px] text-gray-400 mt-1">This value is automatically calculated from the uploaded file.</p>
                         </div>
+                        <p class="text-[10px] text-gray-400 mt-1">This value is automatically calculated from the uploaded file.</p>
+                    </div>
 
-                        <button type="submit" class="w-full bg-brand-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-brand-700">Submit Data</button>
-                        <div class="pt-4 border-t border-gray-100 text-center"><button type="button" onclick="App.downloadTemplate()" class="text-brand-600 text-sm font-bold hover:text-brand-800 transition-colors flex items-center justify-center gap-2 w-full"><i class="ph ph-download-simple"></i> Download Template</button></div>
-                    </form>
-                `;
+                    <button type="submit" class="w-full bg-brand-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-brand-700">Submit Data</button>
+                    <div class="pt-4 border-t border-gray-100 text-center"><button type="button" onclick="App.downloadTemplate()" class="text-brand-600 text-sm font-bold hover:text-brand-800 transition-colors flex items-center justify-center gap-2 w-full"><i class="ph ph-download-simple"></i> Download Template</button></div>
+                </form>
+        `;
                 this.openModal(html);
             },
 
@@ -3366,7 +3433,7 @@
                 const t = this.reportTypes.find(x => x.id === typeId);
                 if (t) {
                     document.getElementById('metric-label-display').innerText = `${t.metricLabel} (${t.unit})`;
-                    document.getElementById('file-format-hint').innerText = `Required Name: ${t.label} - [Details].pdf/xlsx`;
+                    document.getElementById('file-format-hint').innerText = `Required Name: ${t.label} -[Details].pdf / xlsx`;
                 }
             },
 
@@ -3429,7 +3496,24 @@
                             const getVal = (row, idx) => idx !== -1 ? String(row[idx] || '').trim() : '';
                             const getNum = (row, idx) => idx !== -1 ? parseFloat(row[idx]) : NaN;
                             const isYes = (v) => ['yes', 'y', 'true', '1'].includes(v.toLowerCase());
-                            const dataRows = jsonData.slice(1).filter(r => r && r.length > 0 && r.some(c => c !== null && c !== undefined && String(c).trim() !== ''));
+
+                            // ---- DEDUPLICATION LOGIC ----
+                            const seenRows = new Set();
+                            const rawDataRows = jsonData.slice(1).filter(r => r && r.length > 0 && r.some(c => c !== null && c !== undefined && String(c).trim() !== ''));
+
+                            const dataRows = [];
+                            rawDataRows.forEach(row => {
+                                // Create a normalized string representation of the row for comparison
+                                const rowString = JSON.stringify(row.map(cell => String(cell || '').trim().toLowerCase()));
+                                if (!seenRows.has(rowString)) {
+                                    seenRows.add(rowString);
+                                    dataRows.push(row);
+                                }
+                            });
+
+                            if (rawDataRows.length > dataRows.length) {
+                                this.toast(`Filtered ${rawDataRows.length - dataRows.length} duplicate entries.`);
+                            }
 
                             let stats = {};
 
@@ -3589,22 +3673,16 @@
 
                             // Original Total Calculation
                             if (totalColIndex !== -1) {
-                                // CASE A: Found "Total" column -> Sum values
-                                for (let i = 1; i < jsonData.length; i++) {
-                                    const val = parseFloat(jsonData[i][totalColIndex]);
+                                // CASE A: Found "Total" column -> Sum values from UNIQUE rows
+                                for (let i = 0; i < dataRows.length; i++) {
+                                    const val = parseFloat(dataRows[i][totalColIndex]);
                                     if (!isNaN(val)) calculatedValue += val;
                                 }
-                                this.toast(`Summed values from 'Total' column: ${calculatedValue}`);
+                                this.toast(`Summed values from 'Total' column(Duplicates ignored): ${calculatedValue} `);
                             } else {
-                                // CASE B: Count rows (Only non-empty ones)
-                                // Filter out rows that are entirely empty or purely whitespace
-                                const nonEmptyRows = jsonData.filter((row, idx) => {
-                                    if (idx === 0) return false; // Skip header
-                                    if (!row || !Array.isArray(row) || row.length === 0) return false;
-                                    return row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== '');
-                                });
-                                calculatedValue = nonEmptyRows.length;
-                                this.toast(`No 'Total' header found. Counted ${calculatedValue} entries.`);
+                                // CASE B: Count rows (Only unique non-empty ones)
+                                calculatedValue = dataRows.length;
+                                this.toast(`No 'Total' header found.Counted ${calculatedValue} unique entries.`);
                             }
 
                             metricInput.value = calculatedValue;
@@ -3638,47 +3716,47 @@
                 const sampleDataMap = {
                     'learner_profile': h => {
                         const m = { 'LRN': '100100100100', 'Last Name': 'Dela Cruz', 'First Name': 'Juan', 'Middle Name': 'Santos', 'Suffix': '', 'Gender': 'Male', 'Birthdate': '2008-05-15', 'Age': 16, 'Ethnicity': 'Filipino', 'Religion': 'Roman Catholic', 'Address': '123 Rizal St, Kidapawan City', 'Contact No': '09171234567', 'Parent/Guardian': 'Maria Dela Cruz', 'Guardian Contact': '09179876543', '4Ps': 'Yes', 'Weight (kg)': 55, 'Height (m)': 1.62, 'BMI': 20.96, 'Nutritional Status': 'Normal', 'IP': 'No' };
-                        return m[h] !== undefined ? m[h] : `Sample ${h}`;
+                        return m[h] !== undefined ? m[h] : `Sample ${h} `;
                     },
                     'academic_performance': h => {
                         const m = { 'LRN': '100100100100', 'Last Name': 'Dela Cruz', 'First Name': 'Juan', 'Grade Level': '10', 'Section': 'Diamond', 'Subject': 'Mathematics', 'Q1': 88, 'Q2': 90, 'Q3': 85, 'Q4': 92, 'Final Rating': 89, 'MPS': 88.75, 'Remarks': 'Passed', 'Promotion Status': 'Promoted' };
-                        return m[h] !== undefined ? m[h] : `Sample ${h}`;
+                        return m[h] !== undefined ? m[h] : `Sample ${h} `;
                     },
                     'attendance_records': h => {
                         const m = { 'LRN': '100100100100', 'Last Name': 'Dela Cruz', 'First Name': 'Juan', 'Grade Level': '10', 'Section': 'Diamond', 'Month': 'January', 'Total School Days': 22, 'Days Present': 20, 'Days Absent': 2, 'Times Tardy': 1, 'Attendance Rate (%)': 90.91 };
-                        return m[h] !== undefined ? m[h] : `Sample ${h}`;
+                        return m[h] !== undefined ? m[h] : `Sample ${h} `;
                     },
                     'philiri_results': h => {
                         const m = { 'LRN': '100100100100', 'Last Name': 'Dela Cruz', 'First Name': 'Juan', 'Grade Level': '7', 'Section': 'Ruby', 'Pre-Test Oral': 45, 'Pre-Test Silent': 50, 'Pre-Test Level': 'Frustration', 'Post-Test Oral': 78, 'Post-Test Silent': 82, 'Post-Test Level': 'Instructional', 'Comprehension Score': 75 };
-                        return m[h] !== undefined ? m[h] : `Sample ${h}`;
+                        return m[h] !== undefined ? m[h] : `Sample ${h} `;
                     },
                     'classroom_resources': h => {
                         const m = { 'Room No': '101', 'Room Type': 'Regular Classroom', 'Capacity': 50, 'Current Enrollment': 45, 'Student-Classroom Ratio': '45:1', 'Armchairs Available': 48, 'Student-Armchair Ratio': '0.94:1', 'Textbooks Available': 40, 'Textbook-Student Ratio': '0.89:1', 'Learning Materials Status': 'Adequate' };
-                        return m[h] !== undefined ? m[h] : `Sample ${h}`;
+                        return m[h] !== undefined ? m[h] : `Sample ${h} `;
                     },
                     'benefits_assistance': h => {
                         const m = { 'LRN': '100100100100', 'Last Name': 'Dela Cruz', 'First Name': 'Juan', 'Grade Level': '10', 'Section': 'Diamond', 'Program Type': '4Ps/CCT', 'Program Name': 'Pantawid Pamilyang Pilipino Program', 'Amount': 3000, 'Date Received': '2026-01-15', 'Status': 'Active', 'Remarks': 'Regular beneficiary' };
-                        return m[h] !== undefined ? m[h] : `Sample ${h}`;
+                        return m[h] !== undefined ? m[h] : `Sample ${h} `;
                     },
                     'cocurricular_activities': h => {
                         const m = { 'LRN': '100100100100', 'Last Name': 'Dela Cruz', 'First Name': 'Juan', 'Grade Level': '10', 'Section': 'Diamond', 'Activity Type': 'Sports', 'Activity Name': 'Basketball Intramurals', 'Level of Participation': 'School', 'Award/Recognition': 'Champion', 'Date': '2026-01-20' };
-                        return m[h] !== undefined ? m[h] : `Sample ${h}`;
+                        return m[h] !== undefined ? m[h] : `Sample ${h} `;
                     },
                     'learner_progress': h => {
                         const m = { 'LRN': '100100100100', 'Last Name': 'Dela Cruz', 'First Name': 'Juan', 'Grade Level': '10', 'Section': 'Diamond', 'Quarter': 'Q1', 'Progress Status': 'On Track', 'Report Card Issued': 'Yes', 'PTC Date': '2026-02-01', 'PTC Notes': 'Student shows improvement in Math', 'Parent Feedback': 'Satisfied with progress' };
-                        return m[h] !== undefined ? m[h] : `Sample ${h}`;
+                        return m[h] !== undefined ? m[h] : `Sample ${h} `;
                     },
                     'drrm_incident': h => {
                         const m = { 'Incident Date': '2026-01-10', 'Incident Type': 'Minor Injury', 'Location': 'School Grounds', 'Description': 'Student slipped on wet floor near canteen', 'Students Involved': 1, 'Severity': 'Low', 'Action Taken': 'First aid administered, area marked', 'Status': 'Resolved', 'Reported By': 'Juan Dela Cruz', 'Remarks': 'Floor mats installed' };
-                        return m[h] !== undefined ? m[h] : `Sample ${h}`;
+                        return m[h] !== undefined ? m[h] : `Sample ${h} `;
                     },
                     'program_implementation': h => {
                         const m = { 'Program Name': 'Gulayan sa Paaralan', 'Objectives': 'Promote nutrition awareness and food security', 'Key Activities': 'Planting, Harvesting, Distribution', 'Target': 200, 'Accomplishment': 180, 'Percentage': 90, 'Timeline': 'Aug 2025 - Mar 2026', 'Budget': 15000, 'Expenditure': 12500, 'Status': 'On Track', 'Remarks': 'Phase 2 ongoing' };
-                        return m[h] !== undefined ? m[h] : `Sample ${h}`;
+                        return m[h] !== undefined ? m[h] : `Sample ${h} `;
                     },
                     'instructional_supervision': h => {
                         const m = { 'Teacher Name': 'Maria Santos', 'Observer': 'Principal Ana Reyes', 'Grade Level': '10', 'Subject': 'Science', 'Date': '2026-01-15', 'Time': '8:00 AM', 'Focus Area': 'Active Learning Strategies', 'Learning Objectives': 'Explain photosynthesis process', 'Strategies': 'Cooperative Learning, Lab Activity', 'Findings': 'Effective use of group work and lab materials', 'Learner Engagement': 'High - 90% participation', 'Classroom Management': 'Well-organized, clear routines', 'TA Provided': 'Coaching on differentiated instruction', 'Recommendations': 'Use more formative assessments', 'Action Plan': 'Implement exit tickets weekly', 'Timeline': 'Feb 2026', 'Observer Signature': '(signed)', 'Teacher Signature': '(signed)' };
-                        return m[h] !== undefined ? m[h] : `Sample ${h}`;
+                        return m[h] !== undefined ? m[h] : `Sample ${h} `;
                     }
                 };
 
@@ -3691,12 +3769,14 @@
                         if (col.includes('DATE') || col.includes('BIRTHDAY')) return '2008-01-01';
                         if (col.includes('GENDER')) return 'Male';
                         if (col.includes('4PS')) return 'Yes';
-                        return `Sample ${h}`;
+                        return `Sample ${h} `;
                     });
 
                     const sampleRow = headers.map(sampleFn);
                     const sheetName = typeDef.label.substring(0, 31); // Excel sheet name max 31 chars
-                    const ws = XLSX.utils.aoa_to_sheet([headers, sampleRow]);
+
+                    // Create 3 sample rows to provide a clear example
+                    const ws = XLSX.utils.aoa_to_sheet([headers, sampleRow, sampleRow, sampleRow]);
 
                     // Auto-size columns
                     ws['!cols'] = headers.map((h, i) => ({
@@ -3705,6 +3785,27 @@
 
                     const wb = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+                    // --- ADD INSTRUCTIONS & TUTORIAL TAB ---
+                    const instructions = [
+                        ["HOW TO USE THIS TEMPLATE (TUTORIAL)"],
+                        [""],
+                        ["STEP", "INSTRUCTION / GUIDELINE"],
+                        ["1. Data Entry", "Please input all your actual data in the '" + sheetName + "' tab."],
+                        ["2. Sample Content", "You can clear or overwrite the sample rows provided."],
+                        ["3. Column Headers", "CRITICAL: Do NOT rename, delete, or rearrange the column headers in Row 1. The system relies on exactly these headers."],
+                        ["4. Numeric Values", "For number columns (e.g., Grades, Capacity, Age), enter numbers only (no text like 'kgs' or '%')."],
+                        ["5. Dates format", "Use the YYYY-MM-DD format (e.g., 2026-05-15)."],
+                        ["6. Yes / No", "For boolean/logical fields, strictly type 'Yes' or 'No'."],
+                        ["7. File Format", "When saving, please retain the .xlsx or .csv format."],
+                        ["8. File Naming", "Do not change the base file name. The system validator checks if the required keyword is in the filename."],
+                        [""],
+                        ["Note:", "Once filled out, return to the School Portal and upload this file in the Submit Report modal."]
+                    ];
+                    const wsInstructions = XLSX.utils.aoa_to_sheet(instructions);
+                    wsInstructions['!cols'] = [{ wch: 20 }, { wch: 100 }];
+                    XLSX.utils.book_append_sheet(wb, wsInstructions, 'Tutorial & Instructions');
+
                     XLSX.writeFile(wb, `${typeDef.label}.xlsx`);
                 } catch (e) {
                     console.error(e);
@@ -3715,7 +3816,7 @@
                 // Show Warning Prompt
                 setTimeout(() => {
                     const html = `
-                        <div class="text-center">
+            <div class="text-center">
                             <div class="w-16 h-16 bg-yellow-50 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <i class="ph-fill ph-warning text-3xl"></i>
                             </div>
@@ -3753,44 +3854,64 @@
                 const typeDef = this.reportTypes.find(t => t.id === typeId);
                 const file = e.target.querySelector('input[type="file"]').files[0];
 
-                const reader = new FileReader();
-                reader.onload = async (re) => {
-                    const newReport = {
-                        id: Date.now(),
-                        userId: this.user.id,
-                        user: `${this.user.firstName} ${this.user.lastName}`,
-                        typeId: typeId,
-                        typeLabel: typeDef ? typeDef.label : typeId,
-                        metricValue: formData.get('metricValue'),
-                        unit: typeDef.unit || '', // Store unit snapshot
-                        date: new Date().toISOString(),
-                        fileName: file.name,
-                        fileData: re.target.result, // Base64
-                        stats: this.tempStats || {} // Attach calculated stats
-                    };
+                // --- CHECK FOR EXISTING REPORT BY THIS USER ---
+                const existingReport = this.reports.find(r => r.typeId === typeId && r.userId === this.user.id);
 
-                    const btn = e.target.querySelector('button[type="submit"]');
-                    const originalText = btn.innerHTML;
-                    btn.disabled = true;
-                    btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Submitting...';
+                const processSubmission = () => {
+                    const reader = new FileReader();
+                    reader.onload = async (re) => {
+                        const newReport = {
+                            id: Date.now(),
+                            userId: this.user.id,
+                            user: `${this.user.firstName} ${this.user.lastName}`,
+                            typeId: typeId,
+                            typeLabel: typeDef ? typeDef.label : typeId,
+                            metricValue: formData.get('metricValue'),
+                            unit: typeDef.unit || '', // Store unit snapshot
+                            date: new Date().toISOString(),
+                            fileName: file.name,
+                            fileData: re.target.result, // Base64
+                            stats: this.tempStats || {} // Attach calculated stats
+                        };
 
-                    try {
-                        await this.api('submitReport', newReport);
-                        this.reports.push(newReport); // Optimistic (without fileUrl)
-                        this.lastReportTime = Date.now();
-                        this.toast('Report Submitted!');
-                        this.closeModal();
-                        this.renderReports(document.getElementById('main-view'));
-                    } catch (err) {
-                        this.toast('Submission failed: ' + err.message, 'error');
-                    } finally {
+                        const btn = e.target.querySelector('button[type="submit"]');
+                        const originalText = btn.innerHTML;
                         if (btn) {
-                            btn.disabled = false;
-                            btn.innerHTML = originalText;
+                            btn.disabled = true;
+                            btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Submitting...';
                         }
-                    }
+
+                        try {
+                            if (existingReport) {
+                                // OVERWRITE: Remove the old one remotely and locally
+                                await this.api('deleteReport', { id: existingReport.id });
+                                this.reports = this.reports.filter(r => r.id !== existingReport.id);
+                            }
+                            await this.api('submitReport', newReport);
+                            this.reports.push(newReport); // Optimistic (without fileUrl)
+                            this.lastReportTime = Date.now();
+                            this.toast('Report Submitted!');
+                            this.closeModal();
+                            this.renderReports(document.getElementById('main-view'));
+                        } catch (err) {
+                            this.toast('Submission failed: ' + err.message, 'error');
+                        } finally {
+                            if (btn) {
+                                btn.disabled = false;
+                                btn.innerHTML = originalText;
+                            }
+                        }
+                    };
+                    reader.readAsDataURL(file);
                 };
-                reader.readAsDataURL(file);
+
+                if (existingReport) {
+                    this.askConfirm("Overwrite Existing Report?", "You have already submitted a report for this category. Submitting a new one will overwrite your previous data. Do you want to proceed?", () => {
+                        processSubmission();
+                    });
+                } else {
+                    processSubmission();
+                }
             },
 
             // --- PROFILE & SETTINGS ---
