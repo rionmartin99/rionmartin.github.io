@@ -3393,7 +3393,7 @@
             },
 
             openSubmitModal() {
-                const options = this.reportTypes.map(t => `< option value = "${t.id}" > ${t.label}</option > `).join('');
+                const options = this.reportTypes.map(t => `<option value="${t.id}">${t.label}</option>`).join('');
                 const firstType = this.reportTypes.length ? this.reportTypes[0] : null;
                 const firstMetric = firstType ? firstType.metricLabel : 'Value';
                 const firstUnit = firstType ? firstType.unit : '';
