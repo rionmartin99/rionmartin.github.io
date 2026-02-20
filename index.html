@@ -12500,14 +12500,27 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
 
             renderDrrm(container) {
                 const stats = {};
+                const activeSY = this.settings.activeSchoolYear || '2024-2025';
                 const visibleTypes = this.reportTypes.filter(t => t.status !== 'hidden' && t.category === 'DRRM');
 
+                // Auto-tag legacy reports based on date (Assume SY Starts August 1)
+                this.reports.forEach(r => {
+                    if (!r.schoolYear) {
+                        const d = r.date ? new Date(r.date) : new Date();
+                        const year = d.getFullYear();
+                        const month = d.getMonth(); // 0-indexed (7 = August)
+                        r.schoolYear = (month >= 7) ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+                    }
+                });
+
+                const reportsToProcess = this.reports.filter(r => r.schoolYear === activeSY);
+
                 visibleTypes.forEach(type => {
-                    const total = this.reports.filter(r => r.typeId === type.id).reduce((sum, r) => sum + (parseInt(r.metricValue) || 0), 0);
+                    const total = reportsToProcess.filter(r => r.typeId === type.id).reduce((sum, r) => sum + (parseInt(r.metricValue) || 0), 0);
                     stats[type.id] = total;
                 });
 
-                const totalReports = this.reports.filter(r => {
+                const totalReports = reportsToProcess.filter(r => {
                     const type = this.reportTypes.find(t => t.id === r.typeId);
                     return type && type.category === 'DRRM';
                 }).length;
@@ -12529,7 +12542,7 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
                         <h2 class="text-2xl font-bold text-gray-900 flex items-center gap-2">
                             <i class="ph-fill ph-siren text-red-500"></i> DRRM Incident Report
                         </h2>
-                        <p class="text-sm text-gray-500">Disaster Risk Reduction and Management</p>
+                        <p class="text-sm text-gray-500">Disaster Risk Reduction and Management (${activeSY})</p>
                     </div>
                     <div class="flex gap-2">
                         ${this.canManageUsers() || this.isDrrm() ? `<button onclick="App.openCreateReportTypeModal('DRRM')" class="bg-gray-100 text-gray-600 rounded-xl px-4 py-2 text-sm font-bold hover:bg-gray-200 transition-colors"><i class="ph-bold ph-plus"></i> Add Incident Type</button>` : ''}
@@ -12541,8 +12554,8 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
                 </div>
                 <h3 class="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wider">Recent Incident Logs</h3>
                 <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                    ${this.reports.filter(r => { const t = this.reportTypes.find(x => x.id === r.typeId); return t && t.category === 'DRRM'; }).length === 0 ? `<div class="p-8 text-center text-gray-400 text-sm">No incident reports submitted yet.</div>` :
-                        this.reports
+                    ${reportsToProcess.filter(r => { const t = this.reportTypes.find(x => x.id === r.typeId); return t && t.category === 'DRRM'; }).length === 0 ? `<div class="p-8 text-center text-gray-400 text-sm">No incident reports submitted for this school year yet.</div>` :
+                        reportsToProcess
                             .filter(r => { const t = this.reportTypes.find(x => x.id === r.typeId); return t && t.category === 'DRRM'; })
                             .sort((a, b) => new Date(b.date) - new Date(a.date))
                             .slice(0, 10)
