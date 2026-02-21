@@ -13239,18 +13239,7 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
                 // Clean ID if it has prefix
                 targetUserId = targetUserId.replace('INVITE_', '');
 
-                const isViewerDev = this.isDev();
-                const isViewerPrincipal = this.isPrincipal();
-                let isLeaderOfTarget = false;
-                if (!isViewerDev && !isViewerPrincipal) {
-                    const myLedGroups = this.groups.filter(g => g.leaderId === this.user.id || g.assistant1Id === this.user.id || g.assistant2Id === this.user.id);
-                    isLeaderOfTarget = myLedGroups.some(g => g.memberIds.includes(targetUserId) || g.memberIds.includes(`INVITE_${targetUserId}`));
-                }
-
-                if (!isViewerDev && !isViewerPrincipal && !isLeaderOfTarget) {
-                    this.toast('Permission denied.', 'error');
-                    return;
-                }
+                // Permission checks removed: any user can view profiles
 
                 const user = this.users.find(u => u.id === targetUserId);
                 if (!user) return;
@@ -13574,9 +13563,8 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
                     else if (mid === myGroup.assistant1Id || mid === myGroup.assistant2Id) roleStr = 'Asst. Leader';
                     if (isPending) roleStr = 'Pending Accept';
 
-                    const canViewProfile = isGroupAuthority || this.isDev() || this.isPrincipal();
-                    const cursorClass = canViewProfile ? 'cursor-pointer hover:scale-105' : 'cursor-default';
-                    const clickAction = canViewProfile ? `onclick="App.viewUserProfile('${cleanId}')"` : '';
+                    const cursorClass = 'cursor-pointer hover:scale-105';
+                    const clickAction = `onclick="App.viewUserProfile('${cleanId}')"`;
 
                     return `
                         <div class="flex flex-col items-center min-w-[60px]" title="${roleStr}">
@@ -13893,10 +13881,10 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
 
                     const commentsHtml = post.comments.map(c => `
                         <div class="flex gap-3 text-sm">
-                            <img src="${this.resolveImageUrl(c.avatar)}" class="w-8 h-8 rounded-full border border-gray-100 flex-shrink-0">
-                            <div class="bg-gray-50 px-3 py-2 rounded-2xl rounded-tl-none">
-                                <p class="font-bold text-xs text-gray-900 mb-0.5">${c.user}</p>
-                                <p class="text-gray-700">${c.text}</p>
+                            <img src="${this.resolveImageUrl(c.avatar)}" ${c.userId ? `onclick="App.viewUserProfile('${c.userId}')" class="w-8 h-8 rounded-full border border-gray-100 flex-shrink-0 cursor-pointer object-cover hover:ring-2 ring-brand-300 transition-all"` : `class="w-8 h-8 rounded-full border border-gray-100 flex-shrink-0 object-cover"`}>
+                            <div class="bg-gray-50 px-3 py-2 rounded-2xl rounded-tl-none w-full">
+                                <p ${c.userId ? `onclick="App.viewUserProfile('${c.userId}')" class="font-bold text-xs text-gray-900 mb-0.5 cursor-pointer hover:text-brand-600 transition-colors inline-block"` : `class="font-bold text-xs text-gray-900 mb-0.5 inline-block"`}>${c.user}</p>
+                                <p class="text-gray-700 mt-1">${c.text}</p>
                             </div>
                         </div>
                     `).join('');
@@ -13915,8 +13903,8 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
                     <div id="post-${post.id}" class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm animate-slide-up hover:border-brand-200 transition-all relative group/post">
                         <div class="flex items-center justify-between mb-4">
                             <div class="flex items-center gap-3">
-                                <img src="${this.resolveImageUrl(post.groupAvatar || post.avatar)}" class="w-10 h-10 rounded-full border border-gray-200 object-cover bg-white">
-                                <div><h4 class="font-bold text-sm text-gray-900">${post.department || post.author}</h4><p class="text-xs text-gray-500">${post.department ? post.author : post.role} • ${this.formatDate(post.time)}</p></div>
+                                <img src="${this.resolveImageUrl(post.groupAvatar || post.avatar)}" ${(!post.department && post.userId) ? `onclick="App.viewUserProfile('${post.userId}')" class="w-10 h-10 rounded-full border border-gray-200 object-cover bg-white cursor-pointer hover:ring-2 ring-brand-300 transition-all"` : `class="w-10 h-10 rounded-full border border-gray-200 object-cover bg-white"`}>
+                                <div><h4 ${(!post.department && post.userId) ? `onclick="App.viewUserProfile('${post.userId}')" class="font-bold text-sm text-gray-900 cursor-pointer hover:text-brand-600 transition-colors"` : `class="font-bold text-sm text-gray-900"`}>${post.department || post.author}</h4><p class="text-xs text-gray-500">${post.department ? post.author : post.role} • ${this.formatDate(post.time)}</p></div>
                             </div>
                             <div class="flex items-center gap-2">
                                 <span class="${this.getTagStyles(post.tag)}">${post.tag}</span>
@@ -14231,6 +14219,7 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
 
                 const newComment = {
                     id: Date.now(),
+                    userId: this.user.id,
                     user: `${this.user.firstName} ${this.user.lastName}`,
                     text: text,
                     avatar: this.user.avatar || `https://ui-avatars.com/api/?name=${this.user.firstName}&background=random`,
@@ -14242,7 +14231,7 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
                 // UI Update
                 const list = document.getElementById(`comment-list-${postId}`);
                 const count = document.getElementById(`comment-count-${postId}`);
-                list.insertAdjacentHTML('beforeend', `<div class="flex gap-3 text-sm animate-fade-in"><img src="${this.resolveImageUrl(this.user.avatar) || `https://ui-avatars.com/api/?name=${this.user.firstName}&background=random`}" class="w-8 h-8 rounded-full border border-gray-100"><div class="bg-gray-50 px-3 py-2 rounded-2xl"><p class="font-bold text-xs text-gray-900">${this.user.firstName}</p><p class="text-gray-700">${text}</p></div></div>`);
+                list.insertAdjacentHTML('beforeend', `<div class="flex gap-3 text-sm animate-fade-in"><img src="${this.resolveImageUrl(this.user.avatar) || `https://ui-avatars.com/api/?name=${this.user.firstName}&background=random`}" onclick="App.viewUserProfile('${this.user.id}')" class="w-8 h-8 rounded-full border border-gray-100 flex-shrink-0 cursor-pointer object-cover hover:ring-2 ring-brand-300 transition-all"><div class="bg-gray-50 px-3 py-2 rounded-2xl w-full"><div class="flex justify-between items-start mb-1"><span onclick="App.viewUserProfile('${this.user.id}')" class="font-bold text-gray-900 cursor-pointer hover:text-brand-600 transition-colors">${this.user.firstName}</span></div><p class="text-gray-700">${text}</p></div></div>`);
                 count.innerText = this.posts[idx].comments.length;
                 input.value = '';
 
@@ -15856,9 +15845,26 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
                                         <div class="space-y-2"><label class="text-xs font-bold text-gray-600 block">Middle Name</label><input type="text" name="middleName" value="${u.middleName || ''}" class="input-field text-sm py-2.5"></div>
                                         <div class="space-y-2"><label class="text-xs font-bold text-gray-600 block">Age</label><input type="number" name="age" value="${u.age || ''}" class="input-field text-sm py-2.5" required></div>
                                     </div>
-                                    <div class="space-y-5">
+                                    <div class="grid grid-cols-2 gap-4 mb-5">
                                         <div class="space-y-2"><label class="text-xs font-bold text-gray-600 block">Birthday</label><input type="date" name="birthday" value="${u.birthday ? u.birthday.split('T')[0] : ''}" class="input-field text-sm py-2.5" required></div>
                                         <div class="space-y-2"><label class="text-xs font-bold text-gray-600 block">Ethnicity</label><input type="text" name="ethnicity" value="${u.ethnicity || ''}" class="input-field text-sm py-2.5" required></div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4 mb-5">
+                                        <div class="space-y-2">
+                                            <label class="text-xs font-bold text-gray-600 block">Sex/Gender</label>
+                                            <select name="gender" class="input-field text-sm py-2.5" required>
+                                                <option value="" disabled ${!u.gender ? 'selected' : ''}>-- Select --</option>
+                                                <option value="Male" ${u.gender === 'Male' ? 'selected' : ''}>Male</option>
+                                                <option value="Female" ${u.gender === 'Female' ? 'selected' : ''}>Female</option>
+                                            </select>
+                                        </div>
+                                        <div class="space-y-2"><label class="text-xs font-bold text-gray-600 block">Blood Type</label><input type="text" name="bloodType" value="${u.bloodType || ''}" class="input-field text-sm py-2.5" required></div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4 mb-5">
+                                        <div class="space-y-2"><label class="text-xs font-bold text-gray-600 block">Height (m)</label><input type="number" step="0.01" name="heightInfo" value="${u.heightInfo || ''}" class="input-field text-sm py-2.5" required></div>
+                                        <div class="space-y-2"><label class="text-xs font-bold text-gray-600 block">Weight (kg)</label><input type="number" step="0.1" name="weightInfo" value="${u.weightInfo || ''}" class="input-field text-sm py-2.5" required></div>
+                                    </div>
+                                    <div class="space-y-5">
                                         <div class="space-y-2">
                                             <label class="text-xs font-bold text-gray-600 block">Educational Attainment</label>
                                             <select name="education" class="input-field text-sm py-2.5" required>
@@ -15889,21 +15895,24 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
                                         <div class="space-y-2"><label class="text-xs font-bold text-gray-600 block">Department</label><input type="text" name="department" value="${u.department}" class="input-field text-sm py-2.5" required></div>
                                         <div class="space-y-2"><label class="text-xs font-bold text-gray-600 block">Subject Handled</label><input type="text" name="subject" value="${u.subject || ''}" class="input-field text-sm py-2.5" required></div>
                                         
-                                        <!-- Faculty Designation -->
-                                        ${u.role === 'Faculty' ? `
-                                            <div class="space-y-2">
-                                                <label class="text-xs font-bold text-gray-600 block">Designation</label>
-                                                <select name="designation" class="input-field text-sm py-2.5" onchange="document.getElementById('adv-sec-group').style.display = this.value === 'Class Adviser' ? 'block' : 'none'">
-                                                    <option value="" disabled ${!u.designation ? 'selected' : ''}>-- Select Designation --</option>
-                                                    <option value="Floating Teacher" ${u.designation === 'Floating Teacher' ? 'selected' : ''}>Floating Teacher</option>
-                                                    <option value="Class Adviser" ${u.designation === 'Class Adviser' ? 'selected' : ''}>Class Adviser</option>
-                                                </select>
-                                            </div>
-                                            <div id="adv-sec-group" class="space-y-2" style="display: ${u.designation === 'Class Adviser' ? 'block' : 'none'}">
-                                                <label class="text-xs font-bold text-gray-600 block">Advisory Section</label>
-                                                <input type="text" name="advisorySection" value="${u.advisorySection || ''}" placeholder="e.g. Grade 10 - Ruby" class="input-field text-sm py-2.5">
-                                            </div>
-                                        ` : ''}
+                                        <!-- Designation -->
+                                        <div class="space-y-2">
+                                            <label class="text-xs font-bold text-gray-600 block">Designation</label>
+                                            <select name="designation" class="input-field text-sm py-2.5" onchange="document.getElementById('adv-sec-group').style.display = this.value === 'Class Adviser' ? 'block' : 'none'; document.getElementById('office-task-group').style.display = this.value === 'Staff' ? 'block' : 'none'">
+                                                <option value="" disabled ${!u.designation ? 'selected' : ''}>-- Select Designation --</option>
+                                                <option value="Floating Teacher" ${u.designation === 'Floating Teacher' ? 'selected' : ''}>Floating Teacher</option>
+                                                <option value="Class Adviser" ${u.designation === 'Class Adviser' ? 'selected' : ''}>Class Adviser</option>
+                                                <option value="Staff" ${u.designation === 'Staff' ? 'selected' : ''}>Staff</option>
+                                            </select>
+                                        </div>
+                                        <div id="adv-sec-group" class="space-y-2" style="display: ${u.designation === 'Class Adviser' ? 'block' : 'none'}">
+                                            <label class="text-xs font-bold text-gray-600 block">Advisory Section</label>
+                                            <input type="text" name="advisorySection" value="${u.advisorySection || ''}" placeholder="e.g. Grade 10 - Ruby" class="input-field text-sm py-2.5">
+                                        </div>
+                                        <div id="office-task-group" class="space-y-2" style="display: ${u.designation === 'Staff' ? 'block' : 'none'}">
+                                            <label class="text-xs font-bold text-gray-600 block">Office & Task</label>
+                                            <input type="text" name="officeAndTask" value="${u.officeAndTask || ''}" placeholder="e.g. Registrar - Data Encoder" class="input-field text-sm py-2.5">
+                                        </div>
 
                                         <div class="space-y-2">
                                             <label class="text-xs font-bold text-gray-600 block">Grade Level Handled</label>
@@ -15920,8 +15929,36 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
                                                  <label class="text-xs font-bold text-gray-600 flex items-center">GSIS No. ${privateFieldBadge}</label>
                                                  <input type="text" name="gsis" value="${u.gsis || ''}" class="input-field text-sm py-2.5" required>
                                              </div>
+                                             <div class="space-y-2">
+                                                 <label class="text-xs font-bold text-gray-600 flex items-center">UMID ${privateFieldBadge}</label>
+                                                 <input type="text" name="umid" value="${u.umid || ''}" class="input-field text-sm py-2.5" required>
+                                             </div>
+                                             <div class="space-y-2">
+                                                 <label class="text-xs font-bold text-gray-600 flex items-center">Pag-Ibig No. ${privateFieldBadge}</label>
+                                                 <input type="text" name="pagIbig" value="${u.pagIbig || ''}" class="input-field text-sm py-2.5" required>
+                                             </div>
+                                             <div class="space-y-2">
+                                                 <label class="text-xs font-bold text-gray-600 flex items-center">TIN ${privateFieldBadge}</label>
+                                                 <input type="text" name="tin" value="${u.tin || ''}" class="input-field text-sm py-2.5" required>
+                                             </div>
+                                             <div class="space-y-2">
+                                                 <label class="text-xs font-bold text-gray-600 flex items-center">PhilSys No. ${privateFieldBadge}</label>
+                                                 <input type="text" name="philSys" value="${u.philSys || ''}" class="input-field text-sm py-2.5" required>
+                                             </div>
+                                             <div class="space-y-2">
+                                                 <label class="text-xs font-bold text-gray-600 flex items-center">PRC No. ${privateFieldBadge}</label>
+                                                 <input type="text" name="prc" value="${u.prc || ''}" class="input-field text-sm py-2.5" required>
+                                             </div>
+                                             <div class="space-y-2">
+                                                 <label class="text-xs font-bold text-gray-600 flex items-center">Agency No. ${privateFieldBadge}</label>
+                                                 <input type="text" name="agencyNo" value="${u.agencyNo || ''}" class="input-field text-sm py-2.5" required>
+                                             </div>
+                                             <div class="space-y-2">
+                                                 <label class="text-xs font-bold text-gray-600 flex items-center">Employee No. ${privateFieldBadge}</label>
+                                                 <input type="text" name="employeeNo" value="${u.employeeNo || ''}" class="input-field text-sm py-2.5" required>
+                                             </div>
                                         </div>
-                                        <p class="text-[10px] text-gray-400 italic -mt-2"><i class="ph ph-eye-slash"></i> PhilHealth ID and GSIS No. are hidden from other users</p>
+                                        <p class="text-[10px] text-gray-400 italic -mt-2"><i class="ph ph-eye-slash"></i> These IDs are hidden from other users</p>
                                     </div>
                                 </div>
                                 <!-- Account Security Card -->
@@ -15944,6 +15981,62 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
                     </div>
                 `;
             },
+            viewUserProfile(userId) {
+                const u = this.users.find(x => x.id === userId);
+                if (!u) return;
+
+                const avatarUrl = this.resolveImageUrl(u.avatar) || `https://ui-avatars.com/api/?name=${u.firstName}+${u.lastName}&background=random&size=128`;
+
+                const html = `
+                    <div class="max-w-xl mx-auto pb-4">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-xl font-bold text-gray-900">User Profile</h3>
+                            <button onclick="App.closeModal()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200"><i class="ph ph-x"></i></button>
+                        </div>
+                        
+                        <div class="flex items-center gap-5 mb-6">
+                            <img src="${avatarUrl}" class="w-24 h-24 rounded-full border-4 border-white shadow-md bg-gray-100 object-cover">
+                            <div>
+                                <h2 class="text-2xl font-bold text-gray-900">${u.firstName} ${u.lastName}</h2>
+                                <p class="text-brand-600 font-medium">${u.position} • ${u.department}</p>
+                                <p class="text-xs text-gray-500 mt-1"><i class="ph-fill ph-envelope"></i> ${u.email}</p>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <!-- Work Related Info -->
+                            <div class="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3"><i class="ph-fill ph-briefcase"></i> Work Information</h4>
+                                <div class="grid grid-cols-2 gap-y-3 text-sm">
+                                    <div><span class="text-gray-500 block text-xs">Role</span><span class="font-medium">${u.role || '-'}</span></div>
+                                    <div><span class="text-gray-500 block text-xs">Employee ID</span><span class="font-medium">${u.empId || '-'}</span></div>
+                                    ${u.designation ? `<div><span class="text-gray-500 block text-xs">Designation</span><span class="font-medium">${u.designation}</span></div>` : ''}
+                                    ${u.advisorySection ? `<div><span class="text-gray-500 block text-xs">Advisory Section</span><span class="font-medium">${u.advisorySection}</span></div>` : ''}
+                                    ${u.officeAndTask ? `<div><span class="text-gray-500 block text-xs">Office & Task</span><span class="font-medium">${u.officeAndTask}</span></div>` : ''}
+                                    <div><span class="text-gray-500 block text-xs">Subject Handled</span><span class="font-medium">${u.subject || '-'}</span></div>
+                                    <div><span class="text-gray-500 block text-xs">Grade Level</span><span class="font-medium">${u.gradeLevel || '-'}</span></div>
+                                    <div><span class="text-gray-500 block text-xs">Joined</span><span class="font-medium">${u.joined ? new Date(u.joined).toLocaleDateString() : '-'}</span></div>
+                                </div>
+                            </div>
+
+                            <!-- Personal Info -->
+                            <div class="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3"><i class="ph-fill ph-user"></i> Personal Information</h4>
+                                <div class="grid grid-cols-2 gap-y-3 text-sm">
+                                    <div><span class="text-gray-500 block text-xs">Gender</span><span class="font-medium">${u.gender || '-'}</span></div>
+                                    <div><span class="text-gray-500 block text-xs">Age</span><span class="font-medium">${u.age || '-'}</span></div>
+                                    <div><span class="text-gray-500 block text-xs">Blood Type</span><span class="font-medium">${u.bloodType || '-'}</span></div>
+                                    <div><span class="text-gray-500 block text-xs">Height/Weight</span><span class="font-medium">${u.heightInfo ? u.heightInfo + 'm' : '-'} / ${u.weightInfo ? u.weightInfo + 'kg' : '-'}</span></div>
+                                    <div><span class="text-gray-500 block text-xs">Ethnicity</span><span class="font-medium">${u.ethnicity || '-'}</span></div>
+                                    <div><span class="text-gray-500 block text-xs">Education</span><span class="font-medium">${u.education || '-'}</span></div>
+                                    <div><span class="text-gray-500 block text-xs">Contact</span><span class="font-medium">${u.contactNumber || '-'}</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                this.openModal(html);
+            },
 
             openUserManager() {
                 const html = `
@@ -15956,10 +16049,10 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
                         <div class="flex-1 overflow-y-auto custom-scroll space-y-2">
                             ${this.users.map(u => `
                                 <div class="user-item flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                    <div class="flex items-center gap-3">
-                                        <img src="${this.resolveImageUrl(u.avatar) || `https://ui-avatars.com/api/?name=${u.firstName}+${u.lastName}`}" class="w-10 h-10 rounded-full bg-gray-200 object-cover">
+                                    <div class="flex items-center gap-3 cursor-pointer group" onclick="App.viewUserProfile('${u.id}')">
+                                        <img src="${this.resolveImageUrl(u.avatar) || `https://ui-avatars.com/api/?name=${u.firstName}+${u.lastName}`}" class="w-10 h-10 rounded-full bg-gray-200 object-cover group-hover:ring-2 ring-brand-300 transition-all">
                                         <div>
-                                            <p class="text-sm font-bold text-gray-900">${u.firstName} ${u.lastName}</p>
+                                            <p class="text-sm font-bold text-gray-900 group-hover:text-brand-600 transition-colors">${u.firstName} ${u.lastName}</p>
                                             <p class="text-xs text-gray-500">${u.role} • ${u.email}</p>
                                         </div>
                                     </div>
