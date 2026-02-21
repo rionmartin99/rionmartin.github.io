@@ -11902,6 +11902,13 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
                     <i class="ph ph-users-three text-xl"></i>
                     <span class="font-medium">My Department</span>
                 </button>
+                <!-- [ADDED] Directory Sidebar Button -->
+                <button onclick="App.router('directory')"
+                    class="sidebar-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-500 hover:bg-gray-50 hover:text-brand-600 transition-colors"
+                    data-target="directory" data-tooltip="Search for Personnel">
+                    <i class="ph ph-address-book text-xl"></i>
+                    <span class="font-medium">Directory</span>
+                </button>
                 <button onclick="App.router('reports')"
                     class="sidebar-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-500 hover:bg-gray-50 hover:text-brand-600 transition-colors"
                     data-target="reports" data-tooltip="Submit & View Analytics">
@@ -11990,6 +11997,14 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
                         <i
                             class="ph ph-users-three text-2xl text-gray-400 group-[.active]:text-brand-600 transition-colors"></i>
                         <span class="text-[10px] font-medium text-gray-400 group-[.active]:text-brand-600">Groups</span>
+                    </button>
+                    <!-- [ADDED] Directory Mobile Button -->
+                    <button onclick="App.router('directory')"
+                        class="nav-btn group flex flex-col items-center gap-1 w-14" data-target="directory">
+                        <i
+                            class="ph ph-address-book text-2xl text-gray-400 group-[.active]:text-brand-600 transition-colors"></i>
+                        <span
+                            class="text-[10px] font-medium text-gray-400 group-[.active]:text-brand-600">Directory</span>
                     </button>
                     <button onclick="App.router('reports')" class="nav-btn group flex flex-col items-center gap-1 w-14"
                         data-target="reports">
@@ -12205,6 +12220,7 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
             posts: [],
             groups: [],
             settings: { appName: 'School Portal', logo: null, opaqueBg: false, bgOpacity: 0.8, backgroundImage: null },
+            searchHistory: [], // Initialized in init()
 
             // Pagination state
             postsLimit: 10,
@@ -12233,6 +12249,11 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
                         this.user = JSON.parse(session);
                         this.updateSidebarIdentity();
 
+                        try {
+                            const history = localStorage.getItem('DIRECTORY_SEARCH_HISTORY');
+                            if (history) this.searchHistory = JSON.parse(history);
+                        } catch (e) { this.searchHistory = []; }
+
                         // [ADDED] SWR Caching: Load from cache first for instant render
                         try {
                             const cache = localStorage.getItem(DB_CACHE_DATA);
@@ -12248,7 +12269,7 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
                         } catch (e) { console.warn("Cache load failed", e); }
 
                         let initialRoute = window.location.hash.replace('#', '') || 'home';
-                        const validRoutes = ['home', 'groups', 'reports', 'drrm', 'profile'];
+                        const validRoutes = ['home', 'groups', 'reports', 'directory', 'drrm', 'profile'];
                         if (!validRoutes.includes(initialRoute)) initialRoute = 'home';
 
                         this.router(initialRoute);
@@ -12984,6 +13005,7 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
                 switch (route) {
                     case 'landing': this.renderLanding(main); break;
                     case 'home': this.renderHome(main); break;
+                    case 'directory': this.renderDirectory(main); break; // [ADDED]
                     case 'groups': this.renderGroups(main); break;
                     case 'reports': this.renderReports(main); break;
                     case 'drrm': this.renderDrrm(main); break; // NEW ROUTE
@@ -14018,6 +14040,264 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
                 `;
             },
 
+            // --- DIRECTORY / SEARCH LOGIC ---
+            renderDirectory(container, query = '') {
+                // Initialize local UI state if not defined
+                let resultsHtml = '';
+                let isSearching = query.trim().length > 0;
+                let searchResults = [];
+
+                if (isSearching) {
+                    searchResults = this.performDirectorySearch(query);
+                    // Add to history
+                    if (!this.searchHistory.includes(query.trim())) {
+                        this.searchHistory.unshift(query.trim());
+                        if (this.searchHistory.length > 5) this.searchHistory.pop(); // Keep last 5
+                        localStorage.setItem('DIRECTORY_SEARCH_HISTORY', JSON.stringify(this.searchHistory));
+                    }
+                }
+
+                this.currentDirectoryResults = searchResults; // Store for CSV export
+
+                if (isSearching) {
+                    if (searchResults.length > 0) {
+                        resultsHtml = `
+                            <div class="flex justify-between items-end mb-4 animate-slide-up">
+                                <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider">Found ${searchResults.length} Result${searchResults.length > 1 ? 's' : ''}</h3>
+                                <button onclick="App.downloadDirectoryCSV()" class="text-xs font-bold bg-brand-50 text-brand-600 hover:bg-brand-100 py-1.5 px-3 rounded-lg border border-brand-200 transition-colors flex items-center gap-1">
+                                    <i class="ph-bold ph-download-simple"></i> Export CSV
+                                </button>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in pb-10">
+                                ${searchResults.map(u => {
+                            const avatarUrl = this.resolveImageUrl(u.avatar) || `https://ui-avatars.com/api/?name=${u.firstName}+${u.lastName}&background=random`;
+                            return `
+                                        <div onclick="App.viewUserProfile('${u.id}')" class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:border-brand-300 hover:shadow-md transition-all cursor-pointer group flex items-start gap-4 flex-col sm:flex-row">
+                                            <img src="${avatarUrl}" class="w-16 h-16 rounded-full border-2 border-gray-100 object-cover flex-shrink-0 group-hover:ring-2 ring-brand-400 transition-all mx-auto sm:mx-0">
+                                            <div class="text-center sm:text-left w-full min-w-0">
+                                                <h4 class="font-bold text-gray-900 truncate">${u.firstName} ${u.lastName}</h4>
+                                                <p class="text-xs font-medium text-brand-600 truncate mb-1">${u.position || 'Faculty'} ${u.designation ? `• ${u.designation}` : ''}</p>
+                                                <div class="space-y-0.5 text-[10px] text-gray-500">
+                                                    ${u.department ? `<p class="truncate"><i class="ph-fill ph-buildings"></i> ${u.department}</p>` : ''}
+                                                    ${u.subject ? `<p class="truncate"><i class="ph-fill ph-book-open"></i> ${u.subject}</p>` : ''}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                        }).join('')}
+                            </div>
+                        `;
+                    } else {
+                        resultsHtml = `
+                            <div class="py-12 flex flex-col items-center justify-center text-center animate-fade-in">
+                                <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-gray-300 mb-4">
+                                    <i class="ph-fill ph-user-list text-4xl"></i>
+                                </div>
+                                <h3 class="text-lg font-bold text-gray-800 mb-2">No personnel found</h3>
+                                <p class="text-sm text-gray-500 max-w-sm">We couldn't find anyone matching "${query}". Try checking for typos or searching by department or position.</p>
+                            </div>
+                        `;
+                    }
+                }
+
+                // History Pills
+                const historyHtml = this.searchHistory.length > 0 ? `
+                    <div class="mt-4 flex flex-wrap justify-center gap-2">
+                        <span class="text-xs font-medium text-gray-400 self-center mr-1">Recent Searches:</span>
+                        ${this.searchHistory.map(h => `
+                            <button onclick="App.renderDirectory(document.getElementById('main-view'), '${h}')" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1 rounded-full text-xs transition-colors flex items-center gap-1 group">
+                                <i class="ph ph-clock-counter-clockwise"></i> ${h}
+                            </button>
+                        `).join('')}
+                        <button onclick="App.clearSearchHistory()" class="text-[10px] text-red-400 hover:text-red-600 ml-2 self-center transition-colors">Clear</button>
+                    </div>
+                ` : '';
+
+
+                container.innerHTML = `
+                    <div class="max-w-5xl mx-auto w-full px-5 md:px-0 pt-8 sm:pt-12 min-h-[60vh] flex flex-col ${isSearching ? 'justify-start' : 'justify-center items-center'} transition-all duration-500 animate-fade-in">
+                        
+                        ${!isSearching ? `
+                            <div class="text-center mb-8">
+                                <i class="ph-fill ph-address-book text-brand-600 mb-4 inline-block" style="font-size: 4.5rem;"></i>
+                                <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Personnel Directory</h2>
+                                <p class="text-gray-500 mt-2 max-w-md mx-auto">Find teachers, staff, and administrators by name, position, department, or subject.</p>
+                            </div>
+                        ` : `
+                             <div class="mb-8">
+                                <h2 class="text-2xl font-bold text-gray-900 border-b border-gray-100 pb-2">Directory</h2>
+                            </div>
+                        `}
+
+                        <!-- Google-like Search Bar -->
+                        <div class="w-full ${isSearching ? 'max-w-2xl mx-auto' : 'max-w-xl mx-auto'} relative z-10 transition-all duration-500">
+                            <form onsubmit="event.preventDefault(); App.renderDirectory(document.getElementById('main-view'), document.getElementById('dir-search-input').value);" class="relative flex items-center shadow-lg group">
+                                <i class="ph-bold ph-magnifying-glass absolute top-1/2 -translate-y-1/2 text-xl text-gray-400 group-focus-within:text-brand-600 transition-colors pointer-events-none" style="left: 1.25rem;"></i>
+                                <input type="text" id="dir-search-input" value="${query}" placeholder="Search names, positions, departments, blood type etc..." style="padding-left: 3.5rem;" class="w-full bg-white border-2 border-gray-200 focus:border-brand-500 text-gray-800 rounded-full py-4 pr-16 outline-none text-base md:text-lg transition-all focus:shadow-xl placeholder-gray-400" autocomplete="off">
+                                ${query ? `<button type="button" onclick="App.renderDirectory(document.getElementById('main-view'), '')" class="absolute top-1/2 -translate-y-1/2 text-red-500 hover:text-red-600 p-2 transition-colors" style="right: 3.2rem;"><i class="ph-bold ph-x text-xl"></i></button>` : ''}
+                                <button type="submit" class="absolute right-2 top-1/2 -translate-y-1/2 bg-brand-600 text-white w-10 h-10 rounded-full flex items-center justify-center hover:bg-brand-700 hover:scale-105 active:scale-95 transition-all shadow-md">
+                                    <i class="ph-bold ph-arrow-right text-xl"></i>
+                                </button>
+                            </form>
+                            ${!isSearching ? `
+                            <div class="mt-4 text-center animate-fade-in">
+                                <p class="text-[11px] text-gray-500 mb-2"><i class="ph-fill ph-lightbulb text-amber-500"></i> <b>Smart Search:</b> Try specific keywords like <span class="text-brand-600 bg-brand-50 border border-brand-100 px-1.5 py-0.5 rounded font-medium">blood type O</span>, <span class="text-brand-600 bg-brand-50 border border-brand-100 px-1.5 py-0.5 rounded font-medium">dept Math</span>, or <span class="text-brand-600 bg-brand-50 border border-brand-100 px-1.5 py-0.5 rounded font-medium">gender F</span></p>
+                            </div>
+                            ` + historyHtml : ''}
+                        </div>
+
+                        <!-- Results Container -->
+                        <div class="w-full mt-8 ${isSearching ? 'flex-1' : 'hidden'}">
+                            ${resultsHtml}
+                        </div>
+                    </div>
+                `;
+
+                // Auto-focus logic if not mobile
+                if (!isSearching && window.innerWidth > 768) {
+                    setTimeout(() => document.getElementById('dir-search-input').focus(), 100);
+                }
+            },
+
+            clearSearchHistory() {
+                this.searchHistory = [];
+                localStorage.removeItem('DIRECTORY_SEARCH_HISTORY');
+                this.renderDirectory(document.getElementById('main-view'));
+            },
+
+            performDirectorySearch(query) {
+                if (!query) return [];
+                let searchStr = query.toLowerCase().trim();
+
+                // Advanced Keyword Mapping
+                const keywordMap = [
+                    { keywords: ['blood type', 'blood', 'type'], field: 'bloodType', exact: true },
+                    { keywords: ['department', 'dept'], field: 'department', exact: false },
+                    { keywords: ['position', 'pos'], field: 'position', exact: false },
+                    { keywords: ['subject', 'subj'], field: 'subject', exact: false },
+                    { keywords: ['gender', 'sex'], field: 'gender', exact: true },
+                    { keywords: ['grade', 'grade level'], field: 'gradeLevel', exact: true },
+                    { keywords: ['age'], field: 'age', exact: true },
+                    { keywords: ['ethnicity', 'ethnic'], field: 'ethnicity', exact: false },
+                    { keywords: ['education', 'educ', 'degree'], field: 'education', exact: false },
+                    { keywords: ['contact', 'number', 'phone'], field: 'contactNumber', exact: false }
+                ];
+
+                let targetedFilters = [];
+
+                keywordMap.forEach(mapping => {
+                    mapping.keywords.forEach(kw => {
+                        // Regex to find "blood type o" or "dept math"
+                        const kwRegex = new RegExp(`\\b${kw}\\s+([a-z0-9\\+\\-]+)`, 'i');
+                        const match = searchStr.match(kwRegex);
+                        if (match) {
+                            targetedFilters.push({ field: mapping.field, value: match[1], exact: mapping.exact });
+                            // Remove the matched part from the generic search string
+                            searchStr = searchStr.replace(match[0], '').trim();
+                        }
+                    });
+                });
+
+                // Fields to search through. Now includes basic public personal fields.
+                const searchFields = ['firstName', 'lastName', 'middleName', 'position', 'designation', 'advisorySection', 'department', 'subject', 'gradeLevel', 'officeAndTask', 'role', 'bloodType', 'gender', 'civilStatus', 'religion', 'ethnicity', 'education', 'age', 'height', 'weight', 'contactNumber'];
+
+                return this.users.filter(u => {
+                    // Always exclude Dev accounts from public directory unless explicitly searched
+                    if (u.role === 'Developer' && query.toLowerCase().trim() !== 'developer') return false;
+
+                    // Evaluate targeted filters first
+                    let matchesTargeted = true;
+                    if (targetedFilters.length > 0) {
+                        matchesTargeted = targetedFilters.every(filter => {
+                            const val = u[filter.field];
+                            if (!val) return false;
+                            const strVal = String(val).toLowerCase();
+                            if (filter.exact) {
+                                return strVal === filter.value || strVal.startsWith(filter.value);
+                            } else {
+                                return strVal.includes(filter.value);
+                            }
+                        });
+                    }
+
+                    if (!matchesTargeted) return false;
+
+                    // If remaining search string is empty, targeted filters were enough
+                    if (searchStr === '') return true;
+
+                    // Basic substring & "fuzzy" split matching
+                    const terms = searchStr.split(' ').filter(t => t.length > 0);
+                    if (terms.length === 0) return true;
+
+                    // Helper: Check if a user field contains the term
+                    const matchesTerm = (term) => {
+                        return searchFields.some(field => {
+                            if (u[field] && typeof u[field] === 'string') {
+                                return u[field].toLowerCase().includes(term);
+                            }
+                            return false;
+                        });
+                    };
+
+                    // The user matches if ALL terms match AT LEAST ONE field.
+                    return terms.every(term => matchesTerm(term));
+                });
+            },
+
+            downloadDirectoryCSV() {
+                if (!this.currentDirectoryResults || this.currentDirectoryResults.length === 0) {
+                    this.toast("No results to export.", "error"); return;
+                }
+
+                // Define CSV Headers & Fields mapping
+                const fields = [
+                    { label: 'First Name', key: 'firstName' },
+                    { label: 'Last Name', key: 'lastName' },
+                    { label: 'Middle Name', key: 'middleName' },
+                    { label: 'Role', key: 'role' },
+                    { label: 'Position', key: 'position' },
+                    { label: 'Designation', key: 'designation' },
+                    { label: 'Department', key: 'department' },
+                    { label: 'Subject Handled', key: 'subject' },
+                    { label: 'Grade Level Handled', key: 'gradeLevel' },
+                    { label: 'Advisory Section', key: 'advisorySection' },
+                    { label: 'Office & Task', key: 'officeAndTask' },
+                    { label: 'Blood Type', key: 'bloodType' },
+                    { label: 'Gender', key: 'gender' },
+                    { label: 'Age', key: 'age' },
+                    { label: 'Height (m)', key: 'height' },
+                    { label: 'Weight (kg)', key: 'weight' },
+                    { label: 'Ethnicity', key: 'ethnicity' },
+                    { label: 'Education', key: 'education' },
+                    { label: 'Contact Number', key: 'contactNumber' }
+                ];
+
+                let csvContent = "data:text/csv;charset=utf-8,";
+
+                // Add Headers
+                csvContent += fields.map(f => f.label).join(',') + "\r\n";
+
+                // Add Rows
+                this.currentDirectoryResults.forEach(u => {
+                    let row = fields.map(f => {
+                        let val = u[f.key] || '';
+                        // Escape quotes and wrap in quotes to handle commas in data
+                        let v = val.toString().replace(/"/g, '""');
+                        return `"${v}"`;
+                    });
+                    csvContent += row.join(',') + "\r\n";
+                });
+
+                // Trigger Download
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `Directory_Search_Results_${new Date().toISOString().split('T')[0]}.csv`);
+                document.body.appendChild(link); // Required for Firefox
+                link.click();
+                document.body.removeChild(link);
+            },
+
             handlePostMediaSelect(input) {
                 if (input.files && input.files[0]) {
                     const reader = new FileReader();
@@ -14074,7 +14354,7 @@ Constrain images and videos to the parent width and preserve their intrinsic asp
                 const newPost = {
                     id: Date.now(),
                     userId: this.user.id,
-                    author: `${this.user.firstName} ${this.user.lastName}`,
+                    author: `${this.user.firstName} ${this.user.lastName} `,
                     department: departmentName,
                     role: this.user.role,
                     avatar: this.user.avatar || `https://ui-avatars.com/api/?name=${this.user.firstName}+${this.user.lastName}`,
